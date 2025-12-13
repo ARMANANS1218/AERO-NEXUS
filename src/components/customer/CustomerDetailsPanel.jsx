@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, Save, Search, User, Phone, Mail, MapPin, CreditCard, 
-  Calendar, FileText, Building, Hash, Globe, Edit2, ChevronLeft, ChevronRight
+  Calendar, FileText, Building, Hash, Globe, Edit2, ChevronLeft, ChevronRight, Plus
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import Select from 'react-select';
@@ -21,6 +21,7 @@ export default function CustomerDetailsPanel({
   const [isSaving, setIsSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,7 +37,7 @@ export default function CustomerDetailsPanel({
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
 
-  const [formData, setFormData] = useState({
+  const initialFormState = {
     customerId: '',
     name: '',
     email: '',
@@ -66,7 +67,9 @@ export default function CustomerDetailsPanel({
     activationDate: '',
     deactivationDate: '',
     serviceStatus: 'Active'
-  });
+  };
+
+  const [formData, setFormData] = useState(initialFormState);
 
   // Get all countries for dropdown
   const countries = Country.getAllCountries().map(country => ({
@@ -75,6 +78,17 @@ export default function CustomerDetailsPanel({
     name: country.name,
     isoCode: country.isoCode
   }));
+
+  // Reset form to initial state
+  const resetForm = () => {
+    setFormData(initialFormState);
+    setSelectedCountry(null);
+    setSelectedState(null);
+    setSelectedCity(null);
+    setSelectedCustomerId(null);
+    setIsEditMode(false);
+    setIsCreatingNew(false);
+  };
 
   // Load recent customers on mount
   useEffect(() => {
@@ -267,6 +281,7 @@ export default function CustomerDetailsPanel({
   const handleSelectCustomer = (customer) => {
     setSelectedCustomerId(customer._id);
     setIsEditMode(false); // Start in view mode
+    setIsCreatingNew(false);
     setFormData({
       customerId: customer.customerId || '',
       name: customer.name || '',
@@ -446,6 +461,9 @@ export default function CustomerDetailsPanel({
         if (isEditMode) {
           setIsEditMode(false); // Exit edit mode after save
         }
+        if (isCreatingNew) {
+          setIsCreatingNew(false); // Exit creation mode after save
+        }
         if (!isUpdate) {
           onClose(); // Close panel only on create
         }
@@ -509,7 +527,7 @@ export default function CustomerDetailsPanel({
                 ? 'Edit Customer' 
                 : selectedCustomerId 
                   ? 'Customer Details' 
-                  : queryCustomerInfo 
+                  : queryCustomerInfo || isCreatingNew
                     ? 'Create Customer ID'
                     : 'Customer List'
             }
@@ -603,12 +621,24 @@ export default function CustomerDetailsPanel({
               </div>
             )}
           </div>
-        ) : !selectedCustomerId && !queryCustomerInfo ? (
+        ) : !selectedCustomerId && !queryCustomerInfo && !isCreatingNew ? (
           <div className="space-y-4">
             {/* Recent Customers List */}
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-semibold text-gray-900 dark:text-white">Recent Customers</h4>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setIsCreatingNew(true);
+                    setSelectedCustomerId(null);
+                    setIsEditMode(false);
+                  }}
+                  className="px-3 py-1.5 bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white rounded-lg text-sm font-medium transition-all flex items-center gap-1 shadow-md"
+                >
+                  <Plus size={16} />
+                  Create New
+                </button>
+                <div className="flex items-center gap-2">
                 <label className="text-sm text-gray-600 dark:text-gray-400">Per page:</label>
                 <select
                   value={itemsPerPage}
@@ -622,6 +652,7 @@ export default function CustomerDetailsPanel({
                   <option value={50}>50</option>
                   <option value={100}>100</option>
                 </select>
+              </div>
               </div>
             </div>
 
@@ -1104,9 +1135,9 @@ export default function CustomerDetailsPanel({
       </div>
 
       {/* Footer */}
-      {!isSearchMode && (isEditMode || (selectedCustomerId && !isEditMode)) && (
+      {!isSearchMode && (selectedCustomerId || isEditMode || queryCustomerInfo || isCreatingNew) && (
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex gap-2">
-          {isEditMode ? (
+          {isEditMode || isCreatingNew || (!selectedCustomerId && !queryCustomerInfo) ? (
             <>
               <button
                 onClick={handleSave}
@@ -1114,10 +1145,36 @@ export default function CustomerDetailsPanel({
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white rounded-lg transition-all font-medium disabled:opacity-50"
               >
                 <Save size={18} />
-                {isSaving ? 'Saving...' : 'Update Customer'}
+                {isSaving ? 'Saving...' : (isEditMode ? 'Update Customer' : 'Create Customer')}
               </button>
               <button
-                onClick={() => setIsEditMode(false)}
+                onClick={() => {
+                  if (isEditMode) {
+                    setIsEditMode(false);
+                  } else if (isCreatingNew) {
+                    setIsCreatingNew(false);
+                    resetForm();
+                  } else {
+                    onClose();
+                  }
+                }}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </>
+          ) : queryCustomerInfo ? (
+            <>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white rounded-lg transition-all font-medium disabled:opacity-50"
+              >
+                <Save size={18} />
+                {isSaving ? 'Saving...' : 'Create Customer'}
+              </button>
+              <button
+                onClick={onClose}
                 className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
               >
                 Cancel

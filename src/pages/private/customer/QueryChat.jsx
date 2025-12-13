@@ -97,7 +97,6 @@ export default function QueryChat() {
   
   // Suggested Messages state
   const [suggestedMessages, setSuggestedMessages] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(true);
   
   const mainSocket = getSocket();
   const colorMode = useContext(ColorModeContext);
@@ -488,33 +487,108 @@ export default function QueryChat() {
 
     const lastMessage = lastCustomerMessage.toLowerCase();
     
-    // Check for keywords and provide context-aware suggestions
-    if (lastMessage.includes('thank') || lastMessage.includes('thanks')) {
-      return [...closingMessages.slice(0, 2), ...followUpMessages.slice(2, 3)];
-    }
-    
-    if (lastMessage.includes('problem') || lastMessage.includes('issue') || lastMessage.includes('not working')) {
-      return [...acknowledgmentMessages.slice(0, 2), ...followUpMessages[0]];
-    }
-    
-    if (lastMessage.includes('help') || lastMessage.includes('assist') || lastMessage.includes('support')) {
-      return [...acknowledgmentMessages.slice(1, 3), ...followUpMessages[1]];
-    }
-    
-    if (lastMessage.includes('wait') || lastMessage.includes('long') || lastMessage.includes('still')) {
+    // Priority 1: Check for gratitude/thanks - suggest closing
+    if (lastMessage.includes('thank') || lastMessage.includes('thanks') || lastMessage.includes('appreciate')) {
       return [
-        "I apologize for the delay. Let me prioritize this for you.",
-        "Thank you for your patience. I'm working on this right now.",
-        "I understand this is taking longer than expected. Let me expedite this."
+        "You're welcome! Is there anything else I can assist you with?",
+        "Glad I could help! Feel free to reach out anytime.",
+        "Happy to help! Have a wonderful day!"
+      ];
+    }
+    
+    // Priority 2: Check for confirmation/resolution acknowledgment
+    if (lastMessage.includes('ok') || lastMessage.includes('okay') || lastMessage.includes('got it') || lastMessage.includes('understood')) {
+      return [
+        "Great! Is there anything else you need help with?",
+        "Perfect! Let me know if you have any other questions.",
+        "Excellent! Feel free to reach out if you need further assistance."
+      ];
+    }
+    
+    // Priority 3: Check for urgent/complaint keywords
+    if (lastMessage.includes('urgent') || lastMessage.includes('asap') || lastMessage.includes('immediately') || lastMessage.includes('emergency')) {
+      return [
+        "I understand this is urgent. Let me prioritize this for you right away.",
+        "I'm escalating this immediately to ensure quick resolution.",
+        "I'll handle this as a priority. Give me just a moment."
+      ];
+    }
+    
+    // Priority 4: Check for waiting/delay complaints
+    if (lastMessage.includes('wait') || lastMessage.includes('waiting') || lastMessage.includes('long') || lastMessage.includes('still') || lastMessage.includes('when')) {
+      return [
+        "I apologize for the delay. Let me check the status for you right now.",
+        "Thank you for your patience. I'm prioritizing this for you.",
+        "I understand this is taking longer than expected. Let me expedite this immediately."
+      ];
+    }
+    
+    // Priority 5: Check for problem/issue keywords
+    if (lastMessage.includes('problem') || lastMessage.includes('issue') || lastMessage.includes('error') || 
+        lastMessage.includes('not working') || lastMessage.includes('broken') || lastMessage.includes('failed') ||
+        lastMessage.includes('doesn\'t work') || lastMessage.includes('can\'t')) {
+      return [
+        "I understand your concern. Let me help you resolve this issue.",
+        "I'm sorry you're experiencing this. Let me investigate right away.",
+        "Could you please provide more details so I can assist you better?"
+      ];
+    }
+    
+    // Priority 6: Check for help/support requests
+    if (lastMessage.includes('help') || lastMessage.includes('assist') || lastMessage.includes('support') || 
+        lastMessage.includes('how to') || lastMessage.includes('how do i')) {
+      return [
+        "I'm here to help! Let me guide you through this.",
+        "I'll be happy to assist you with that.",
+        "Can you share more details so I can provide the best solution?"
+      ];
+    }
+    
+    // Priority 7: Check for questions
+    if (lastMessage.includes('?') || lastMessage.includes('what') || lastMessage.includes('why') || 
+        lastMessage.includes('how') || lastMessage.includes('where') || lastMessage.includes('which')) {
+      return [
+        "Great question! Let me explain that for you.",
+        "I can help you with that. Here's what you need to know...",
+        "Let me check that information for you right away."
+      ];
+    }
+    
+    // Priority 8: Check for payment/billing keywords
+    if (lastMessage.includes('payment') || lastMessage.includes('bill') || lastMessage.includes('charge') || 
+        lastMessage.includes('refund') || lastMessage.includes('invoice') || lastMessage.includes('subscription')) {
+      return [
+        "I'll help you with your billing inquiry. Let me pull up your account.",
+        "Let me check your payment details right away.",
+        "I can assist you with that. Could you provide your account information?"
+      ];
+    }
+    
+    // Priority 9: Check for complaint/dissatisfaction
+    if (lastMessage.includes('unhappy') || lastMessage.includes('disappointed') || lastMessage.includes('frustrated') ||
+        lastMessage.includes('complaint') || lastMessage.includes('terrible') || lastMessage.includes('worst')) {
+      return [
+        "I sincerely apologize for your experience. Let me make this right for you.",
+        "I'm sorry you're feeling this way. Your satisfaction is important to us.",
+        "I understand your frustration. Let me see how I can help resolve this immediately."
+      ];
+    }
+    
+    // Priority 10: Check if query is resolved
+    if (queryStatus === 'resolved') {
+      return [
+        "Your request has been completed. Please let me know if you need further assistance.",
+        "All set! Don't hesitate to contact us again if needed.",
+        "This has been taken care of. Feel free to reach out if you have more questions."
       ];
     }
 
-    if (queryStatus === 'resolved') {
-      return resolutionMessages.slice(0, 3);
-    }
-
-    // Default suggestions
-    return [...acknowledgmentMessages.slice(0, 2), ...followUpMessages[0]];
+    // Default suggestions - general acknowledgment and follow-up
+    return [
+      "Thank you for providing that information.",
+      "Got it! I'm looking into this for you.",
+      "Could you please provide more details about your issue?"
+    ];
   }, [localMessages]);
 
   // Update suggestions when new messages arrive
@@ -537,7 +611,6 @@ export default function QueryChat() {
   // Handle suggestion click
   const handleSuggestionClick = (suggestion) => {
     setMessage(suggestion);
-    setShowSuggestions(false);
     if (messageInputRef.current) {
       messageInputRef.current.focus();
     }
@@ -1659,7 +1732,7 @@ export default function QueryChat() {
             </div>
           )}
           {!canSendMessage && isAgent ? (
-            <div className="flex items-center justify-center gap-3 py-4 px-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+            <div className="flex items-center justify-center gap-2 py-4 px-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
               <AlertCircle size={20} className="text-red-600 dark:text-red-400 flex-shrink-0" />
               <p className="text-red-700 dark:text-red-300 font-semibold">
                 {isWaitingForAssignment 
@@ -1680,45 +1753,19 @@ export default function QueryChat() {
           ) : (
             <div className="space-y-3">
               {/* Suggested Messages */}
-              {isAgent && showSuggestions && suggestedMessages.length > 0 && (
-                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-3 rounded-xl border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <BookOpen size={16} className="text-blue-600 dark:text-blue-400" />
-                      <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Suggested Replies</span>
-                    </div>
+              {isAgent && suggestedMessages.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {suggestedMessages.map((suggestion, index) => (
                     <button
+                      key={index}
                       type="button"
-                      onClick={() => setShowSuggestions(!showSuggestions)}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      className="px-2 py-1 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
                     >
-                      Hide
+                      {suggestion}
                     </button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {suggestedMessages.map((suggestion, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handleSuggestionClick(suggestion)}
-                        className="px-3 py-2 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
+                  ))}
                 </div>
-              )}
-
-              {!showSuggestions && isAgent && suggestedMessages.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowSuggestions(true)}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 flex items-center gap-1"
-                >
-                  <BookOpen size={14} />
-                  Show Suggestions
-                </button>
               )}
 
               <form onSubmit={handleSendMessage} className="flex items-start gap-2">
@@ -1743,7 +1790,7 @@ export default function QueryChat() {
                   autoFocus
                   placeholder="Type your message..."
                   rows={1}
-                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 bg-white dark:bg-gray-950 text-gray-900 dark:text-white resize-none overflow-hidden"
+                  className="w-full px-2 py-1 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 bg-white dark:bg-gray-950 text-gray-900 dark:text-white resize-none overflow-hidden"
                   style={{ 
                     minHeight: '48px', 
                     maxHeight: '120px',
