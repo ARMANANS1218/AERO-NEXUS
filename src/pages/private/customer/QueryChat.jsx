@@ -689,43 +689,43 @@ export default function QueryChat() {
   };
 
   // Call handlers
-  const handleVideoCall = async () => {
-    // Get customer ID from query (it's stored as 'customer', not 'customerId')
-    const customerId = typeof query?.customer === 'object' ? query?.customer?._id : query?.customer;
+  // const handleVideoCall = async () => {
+  //   // Get customer ID from query (it's stored as 'customer', not 'customerId')
+  //   const customerId = typeof query?.customer === 'object' ? query?.customer?._id : query?.customer;
     
-    if (!canMakeCalls || !customerId) {
-      toast.error('Unable to initiate call - you must be assigned to this query');
-      return;
-    }
+  //   if (!canMakeCalls || !customerId) {
+  //     toast.error('Unable to initiate call - you must be assigned to this query');
+  //     return;
+  //   }
 
-    try {
-      const res = await createCall({ receiverId: customerId }).unwrap();
-      const roomId = res?.data?.roomId;
+  //   try {
+  //     const res = await createCall({ receiverId: customerId }).unwrap();
+  //     const roomId = res?.data?.roomId;
       
-      // Navigate to full-page video call
-      const params = new URLSearchParams({
-        roomId,
-        type: 'video',
-        petitionId,
-        userName: query.customerName || 'Customer',
-        initiator: 'true'  // Mark as call initiator
-      });
+  //     // Navigate to full-page video call
+  //     const params = new URLSearchParams({
+  //       roomId,
+  //       type: 'video',
+  //       petitionId,
+  //       userName: query.customerName || 'Customer',
+  //       initiator: 'true'  // Mark as call initiator
+  //     });
       
-      navigate(`/video-call?${params.toString()}`);
+  //     navigate(`/video-call?${params.toString()}`);
       
-      // Emit call init event
-      mainSocket.emit('call:init', { 
-        roomId, 
-        from: currentUser._id, 
-        receiverId: customerId, 
-        callType: 'video',
-        petitionId 
-      });
-    } catch (err) {
-      console.error('Video call error:', err);
-      toast.error(err?.data?.message || 'Failed to start video call');
-    }
-  };
+  //     // Emit call init event
+  //     mainSocket.emit('call:init', { 
+  //       roomId, 
+  //       from: currentUser._id, 
+  //       receiverId: customerId, 
+  //       callType: 'video',
+  //       petitionId 
+  //     });
+  //   } catch (err) {
+  //     console.error('Video call error:', err);
+  //     toast.error(err?.data?.message || 'Failed to start video call');
+  //   }
+  // };
 
   // Camera snapshot flow
   const requestCustomerSnapshot = () => {
