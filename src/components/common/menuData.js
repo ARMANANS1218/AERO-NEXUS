@@ -15,7 +15,8 @@ import {
     FileText,
     Headphones,
     UserCheck,
-    Settings
+    Settings,
+    UserCog
 } from "lucide-react";
 
 export const menuData = {
@@ -41,6 +42,9 @@ export const menuData = {
                     { name: "Create", icon: UserPlus, route: "/admin/create-employee" },
                     { name: "Manage", icon: UsersRound, route: "/admin/employees" },
                 ]
+            },
+            {
+                name: "Customers", icon: UserCog, route: "/admin/customers",
             },
             {
                 name: "Screenshots", icon: Camera, route: "/admin/screenshots",
@@ -102,6 +106,9 @@ export const menuData = {
             //     name: "Calls", icon: Phone, route: "/agent/calls",
             // },
             {
+                name: "Customers", icon: UserCog, route: "/agent/customers",
+            },
+            {
                 name: "Screenshots", icon: Camera, route: "/agent/screenshots",
             },
         ]
@@ -129,6 +136,9 @@ export const menuData = {
             //     name: "Calls", icon: Phone, route: "/qa/calls",
             // },
             {
+                name: "Customers", icon: UserCog, route: "/qa/customers",
+            },
+            {
                 name: "Screenshots", icon: Camera, route: "/qa/screenshots",
             },
             // {
@@ -145,6 +155,7 @@ export const menuData = {
             { name: "Weightage", icon: TrendingUp, route: "/tl/ratings" },
             { name: "Tickets", icon: Inbox, route: "/tl/ticketing/my-inbox" },
             // { name: "Calls", icon: Phone, route: "/tl/calls" },
+            { name: "Customers", icon: UserCog, route: "/tl/customers" },
             { name: "Screenshots", icon: Camera, route: "/tl/screenshots" },
         ]
     }],

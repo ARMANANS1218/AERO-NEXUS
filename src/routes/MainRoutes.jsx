@@ -67,6 +67,7 @@ const AllEmailView = lazy(() => import("../pages/private/ticketing/AllEmailView"
 const TeamInboxEmailView = lazy(() => import("../pages/private/ticketing/TeamInboxEmailView"));
 const ViewEmailView = lazy(() => import("../pages/private/ticketing/ViewEmailView"));
 const EmailTicketDetail = lazy(() => import("../pages/private/ticketing/EmailTicketDetail"));
+const CustomerList = lazy(() => import("../pages/private/customer-management/CustomerList"));
 // ✅ Lazy load routers
 const PublicRouter = lazy(() => import("./router/PublicRouter"));
 const ProtectedRouter = lazy(() => import("./router/ProtectedRouter"));
@@ -79,6 +80,7 @@ const adminChildren = [
   { path: "create-employee", element: <CreateEmployee /> },
   { path: "edit-employee/:id", element: <EditEmployee /> },
   { path: "employees", element: <EmployeeList /> },
+  { path: "customers", element: <CustomerList /> },
   { path: "email-config", element: <AdminEmailConfig /> },
   { path: "location-access", element: <LocationAccess /> },
   { path: "location-settings", element: <LocationSettings /> },
@@ -111,6 +113,7 @@ const qaChildren = [
   { path: "query/:petitionId", element: <QueryChat /> },
   { path: "ratings", element: <AgentRatings /> },
   { path: "calls", element: <Calls /> },
+  { path: "customers", element: <CustomerList /> },
   { path: "screenshots", element: <CallScreenshotGallery /> },
   { path: "profile", element: <QAProfile /> },
   {
@@ -135,6 +138,7 @@ const tlChildren = [
   { path: "query/:petitionId", element: <QueryChat /> },
   { path: "ratings", element: <AgentRatings /> },
   { path: "calls", element: <Calls /> },
+  { path: "customers", element: <CustomerList /> },
   { path: "screenshots", element: <CallScreenshotGallery /> },
   { path: "profile", element: <QAProfile /> },
   {
@@ -156,6 +160,7 @@ const agentChildren = [
   { path: "queries", element: <QueryManagement /> },
   { path: "query/:petitionId", element: <QueryChat /> },
   { path: "calls", element: <Calls /> },
+  { path: "customers", element: <CustomerList /> },
   { path: "screenshots", element: <CallScreenshotGallery /> },
   { path: "profile", element: <AgentProfile /> },
   {

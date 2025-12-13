@@ -20,6 +20,7 @@ import TransferDialog from '../../../components/TransferDialog';
 import { getSocket } from '../../../hooks/socket';
 import EscalationTimeline from '../../../components/Escalations/EscalationTimeline';
 import ColorModeContext from '../../../context/ColorModeContext';
+import CustomerDetailsPanel from '../../../components/customer/CustomerDetailsPanel';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const IMG_BASE_URL = `${API_URL}/uploads/profile`;
@@ -89,6 +90,10 @@ export default function QueryChat() {
   const [isAddingCommon, setIsAddingCommon] = useState(false);
   const [editingCommonId, setEditingCommonId] = useState(null);
   const faqPanelRef = useRef(null);
+  
+  // Customer Details Panel state
+  const [showCustomerPanel, setShowCustomerPanel] = useState(false);
+  const [customerPanelData, setCustomerPanelData] = useState(null);
   
   const mainSocket = getSocket();
   const colorMode = useContext(ColorModeContext);
@@ -943,7 +948,9 @@ export default function QueryChat() {
   
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-white dark:bg-gray-950 overflow-x-hidden overflow-y-auto relative">
+    <div className="flex h-[calc(100vh-64px)] bg-white dark:bg-gray-950 overflow-hidden">
+      {/* Main Chat Container - Shrinks when customer panel is open */}
+      <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${showCustomerPanel ? 'mr-0' : ''} overflow-x-hidden overflow-y-auto relative`}>
       {/* Header */}
       <div className="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="px-4 py-4">
@@ -1026,95 +1033,107 @@ export default function QueryChat() {
 
             {/* Right Section */}
             <div className="flex items-center gap-2">
-              {/* Accept Query Button - Most Prominent for Pending Transfers */}
-              {hasPendingTransfer && (
-                <button
-                  onClick={handleAcceptQuery}
-                  disabled={isAccepting}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all font-medium shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <CheckCircle size={18} />
-                  <span className="hidden sm:inline">
-                    {isAccepting ? 'Accepting...' : 'Accept Query'}
-                  </span>
-                  <span className="sm:hidden">Accept</span>
-                </button>
-              )}
-              {/* Escalation dropdown toggle (left of Resolve) */}
-              {isAgent && (
-                <button
-                  ref={escBtnRef}
-                  onClick={() => setShowEscDropdown(v => !v)}
-                  className={`flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg transition-colors font-medium ${showEscDropdown ? (isDark ? 'bg-slate-700' : 'bg-gray-100') : 'hover:bg-gray-50 dark:hover:bg-gray-700'} text-gray-700 dark:text-gray-300`}
-                  title="Toggle escalation history"
-                >
-                  <Clock size={18} />
-                  <span className="hidden sm:inline">Escalation</span>
-                  <span className="sm:hidden">Esc</span>
-                </button>
-              )}
-              
-              {/* Resolve Button - Only show when assigned and no pending transfer */}
-              {canResolve && !hasPendingTransfer && (
-                <button
-                  onClick={handleResolveQuery}
-                  disabled={isResolving}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all font-medium shadow-lg shadow-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <CheckCircle size={18} />
-                  <span className="hidden sm:inline">
-                    {isResolving ? 'Resolving...' : 'Resolve Query'}
-                  </span>
-                  <span className="sm:hidden">Resolve</span>
-                </button>
-              )}
-              
-              {/* Audio and Video call icons commented out per requirement */}
-              {/* {canMakeCalls && (
+              {/* Show buttons only when panel is closed */}
+              {!showCustomerPanel && (
                 <>
-                  <button 
-                    onClick={handleAudioCall}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors hidden md:block"
-                    title="Audio Call"
-                  >
-                    <Phone size={20} className="text-gray-700 dark:text-gray-300" />
-                  </button>
-                  <button 
-                    onClick={handleVideoCall}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors hidden md:block"
-                    title="Video Call"
-                  >
-                    <Video size={20} className="text-gray-700 dark:text-gray-300" />
-                  </button> */}
-                  {/* Camera snapshot (no call) */}
+                  {/* Accept Query Button - Most Prominent for Pending Transfers */}
+                  {hasPendingTransfer && (
+                    <button
+                      onClick={handleAcceptQuery}
+                      disabled={isAccepting}
+                      className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-sm transition-all font-medium shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      <CheckCircle size={18} />
+                      <span className="hidden sm:inline">
+                        {isAccepting ? 'Accepting...' : 'Accept Query'}
+                      </span>
+                      <span className="sm:hidden">Accept</span>
+                    </button>
+                  )}
+                  {/* Resolve Button */}
+                  {canResolve && !hasPendingTransfer && (
+                    <button
+                      onClick={handleResolveQuery}
+                      disabled={isResolving}
+                      className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-sm transition-all font-medium shadow-lg shadow-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      <CheckCircle size={18} />
+                      <span className="hidden sm:inline">
+                        {isResolving ? 'Resolving...' : 'Resolve Query'}
+                      </span>
+                      <span className="sm:hidden">Resolve</span>
+                    </button>
+                  )}
+                  
+                  {/* Escalation dropdown toggle */}
+                  {isAgent && (
+                    <button
+                      ref={escBtnRef}
+                      onClick={() => setShowEscDropdown(v => !v)}
+                      className="flex items-center gap-2 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-sm transition-all font-medium shadow-md bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white text-sm"
+                      title="Toggle escalation history"
+                    >
+                      <Clock size={18} />
+                      <span className="hidden sm:inline">Escalation</span>
+                      <span className="sm:hidden">Esc</span>
+                    </button>
+                  )}
+                  
+                  {/* Camera snapshot */}
                   {canMakeCalls && isAssignedAgent && (
                     <button 
                       onClick={requestCustomerSnapshot}
-                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors hidden md:block"
+                      className="flex items-center gap-2 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-sm transition-all font-medium shadow-md bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white hidden md:flex text-sm"
                       title="Request Camera Snapshot"
                     >
-                      <Camera size={20} className="text-gray-700 dark:text-gray-300" />
+                      <Camera size={18} />
+                      <span className="text-sm font-medium">Snapshot</span>
                     </button>
                   )}
-                {/* </>
-              )} */}
-              {/* Weightage button (Only QA can set/edit weightage, TL removed) */}
-              {isQA && (
-                <button
-                  onClick={() => setShowRateModal(true)}
-                  disabled={alreadyRated && !canSetWeightage}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium shadow-lg ${
-                    alreadyRated 
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white'
-                  }`}
+                  
+                  {/* Weightage button (Only QA can set/edit weightage) */}
+                  {isQA && (
+                    <button
+                      onClick={() => setShowRateModal(true)}
+                      disabled={alreadyRated && !canSetWeightage}
+                      className="flex items-center gap-2 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-sm transition-all font-medium shadow-md bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white text-sm"
+                    >
+                      <AlertCircle size={18} />
+                      {alreadyRated ? 'View/Edit Weightage' : 'Set Weightage'}
+                    </button>
+                  )}
+                  
+                  {/* FAQ Panel Toggle Button */}
+                  {isAgent && (
+                    <button 
+                      onClick={() => setShowFaqPanel(!showFaqPanel)}
+                      className="flex items-center gap-2 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-sm transition-all font-medium shadow-md bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-900 hover:to-slate-950 text-white text-sm"
+                      title="FAQs & Quick Replies"
+                    >
+                      <BookOpen size={18} />
+                      <span className="text-sm font-medium">FAQs</span>
+                    </button>
+                  )}
+                </>
+              )}
+              
+              {/* Customer Details Panel Toggle Button - Always visible */}
+              {isAgent && (
+                <button 
+                  onClick={() => setShowCustomerPanel(!showCustomerPanel)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Customer Details"
                 >
-                  <AlertCircle size={18} />
-                  {alreadyRated ? 'View/Edit Weightage' : 'Set Weightage'}
+                  {showCustomerPanel ? (
+                    <PanelRightClose size={20} className="text-gray-700 dark:text-gray-300" />
+                  ) : (
+                    <PanelRightOpen size={20} className="text-gray-700 dark:text-gray-300" />
+                  )}
                 </button>
               )}
-              {/* TL cannot set weightage - button removed per requirement */}
               
+              {/* 3-dot menu - Only show when panel is open */}
+              {showCustomerPanel && isAgent && (
               <div className="relative">
                 <button 
                   onClick={() => setShowActions(!showActions)}
@@ -1123,25 +1142,17 @@ export default function QueryChat() {
                   <MoreVertical size={20} className="text-gray-700 dark:text-gray-300" />
                 </button>
 
-              {/* FAQ Panel Toggle Button */}
-              {isAgent && (
-                <button 
-                  onClick={() => setShowFaqPanel(!showFaqPanel)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors ml-2"
-                  title="FAQs"
-                >
-                  {showFaqPanel ? (
-                    <PanelRightClose size={20} className="text-gray-700 dark:text-gray-300" />
-                  ) : (
-                    <PanelRightOpen size={20} className="text-gray-700 dark:text-gray-300" />
-                  )}
-                </button>
-              )}
-
-                {/* Actions Dropdown */}
+                {/* Actions Dropdown - Show actions when panel is open */}
                 {showActions && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-950 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-950 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
                     <div className="py-2">
+                      {/* Petition ID */}
+                      <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                          {query.petitionId}
+                        </p>
+                      </div>
+                      
                       {hasPendingTransfer && (
                         <button
                           onClick={() => {
@@ -1149,7 +1160,7 @@ export default function QueryChat() {
                             handleAcceptQuery();
                           }}
                           disabled={isAccepting}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium disabled:opacity-50"
+                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-white disabled:opacity-50"
                         >
                           <CheckCircle size={18} />
                           {isAccepting ? 'Accepting...' : 'Accept Query'}
@@ -1162,12 +1173,78 @@ export default function QueryChat() {
                             handleResolveQuery();
                           }}
                           disabled={isResolving}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-green-600 dark:text-green-400 font-medium disabled:opacity-50"
+                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-green-600 dark:text-green-400 disabled:opacity-50"
                         >
                           <CheckCircle size={18} />
                           Resolve Query
                         </button>
                       )}
+                      {/* Escalate Query */}
+                       {isAgent && query.status !== 'Resolved' && query.status !== 'Expired' && (
+                        <button
+                          onClick={() => {
+                            setShowActions(false);
+                            setShowTransferDialog(true);
+                          }}
+                          className="w-full px-4 py-2  text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-white"
+                        >
+                          <RefreshCw size={18} />
+                          Escalate Query
+                        </button>
+                      )}
+
+                      {/* Escalation */}
+                      <button
+                        onClick={() => {
+                          setShowActions(false);
+                          setShowEscDropdown(true);
+                        }}
+                        className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-white"
+                      >
+                        <Clock size={18} />
+                        Escalation
+                      </button>
+                      
+                      {/* Snapshot */}
+                      {canMakeCalls && isAssignedAgent && (
+                        <button
+                          onClick={() => {
+                            setShowActions(false);
+                            requestCustomerSnapshot();
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-white"
+                        >
+                          <Camera size={18} />
+                          Snapshot
+                        </button>
+                      )}
+                      
+                      {/* Set Weightage */}
+                      {isQA && (
+                        <button
+                          onClick={() => {
+                            setShowActions(false);
+                            setShowRateModal(true);
+                          }}
+                          disabled={alreadyRated && !canSetWeightage}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-white disabled:opacity-50"
+                        >
+                          <AlertCircle size={18} />
+                          {alreadyRated ? 'View/Edit Weightage' : 'Set Weightage'}
+                        </button>
+                      )}
+                      
+                      {/* FAQs */}
+                      <button
+                        onClick={() => {
+                          setShowActions(false);
+                          setShowFaqPanel(!showFaqPanel);
+                        }}
+                        className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-white"
+                      >
+                        <BookOpen size={18} />
+                        FAQs
+                      </button>
                       {/* Audio and Video call buttons commented out per requirement */}
                       {/* 
                       {canMakeCalls && (
@@ -1195,47 +1272,8 @@ export default function QueryChat() {
                         </>
                       )}
                       */}
-                      {isAssignedAgent && (
-                        <button
-                          onClick={() => {
-                            setShowActions(false);
-                            requestCustomerSnapshot();
-                          }}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-gray-700 dark:text-gray-300 md:hidden"
-                        >
-                          <Camera size={18} />
-                          Request Snapshot
-                        </button>
-                      )}
-                      {/* Only QA can set weightage - TL button removed */}
-                      {isQA && (
-                        <button
-                          onClick={() => {
-                            setShowActions(false);
-                            setShowRateModal(true);
-                          }}
-                          className={`w-full px-4 py-2 text-left transition-colors flex items-center gap-2 ${
-                            alreadyRated 
-                              ? 'hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-600 dark:text-blue-400'
-                              : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-purple-600 dark:text-purple-400'
-                          }`}
-                        >
-                          <AlertCircle size={18} />
-                          {alreadyRated ? 'View/Edit Weightage' : 'Set Weightage'}
-                        </button>
-                      )}
-                      {isAgent && query.status !== 'Resolved' && query.status !== 'Expired' && (
-                        <button
-                          onClick={() => {
-                            setShowActions(false);
-                            setShowTransferDialog(true);
-                          }}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-gray-700 dark:text-gray-300"
-                        >
-                          <RefreshCw size={18} />
-                          Escalate Query
-                        </button>
-                      )}
+
+                     
                       {/* Query Details - COMMENTED OUT */}
                       {/* <button
                         onClick={() => {
@@ -1251,6 +1289,7 @@ export default function QueryChat() {
                   </div>
                 )}
               </div>
+              )}
             </div>
           </div>
 
@@ -2065,6 +2104,31 @@ export default function QueryChat() {
               )
             )}
           </div>
+        </div>
+      )}
+
+      </div>
+      {/* End of Main Chat Container */}
+
+      {/* Customer Details Panel - Sliding from right */}
+      {showCustomerPanel && (
+        <div className={`w-[650px] flex-shrink-0 transition-all duration-300 ease-in-out transform ${
+          showCustomerPanel ? 'translate-x-0' : 'translate-x-full'
+        }`}>
+          <CustomerDetailsPanel
+            isOpen={showCustomerPanel}
+            onClose={() => setShowCustomerPanel(false)}
+            customerId={customerPanelData?.customerId}
+            queryCustomerInfo={{
+              name: query?.customerName,
+              email: query?.customerEmail,
+              mobile: query?.customer?.mobile
+            }}
+            onSave={(savedCustomer) => {
+              toast.success('Customer details saved');
+              refetch(); // Refresh query data
+            }}
+          />
         </div>
       )}
 
