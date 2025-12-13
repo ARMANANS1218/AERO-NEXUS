@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CircularProgress, Avatar, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tooltip } from '@mui/material';
-import { Edit, Search, RefreshCw, Eye, Phone, Mail, MapPin, Calendar, UserCog } from 'lucide-react';
+import { Search, Eye, Phone, Mail, MapPin, Calendar, UserCog, Edit, User } from 'lucide-react';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 
@@ -9,22 +9,52 @@ const CustomerList = () => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewDialog, setViewDialog] = useState({ open: false, customer: null });
-  const [page, setPage] = useState(0);
-  const [rowsPerPage] = useState(10);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [editDialog, setEditDialog] = useState({ open: false, customer: null });
+  const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [totalCustomers, setTotalCustomers] = useState(0);
+  const [isSearchMode, setIsSearchMode] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL;
+
+  // Fetch all customers in organization
+  const fetchMyCustomers = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        `${API_URL}/api/v1/customer/list?page=${page}&limit=${itemsPerPage}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.status && response.data.data) {
+        setCustomers(response.data.data || []);
+        setTotalCustomers(response.data.total || 0);
+      } else {
+        setCustomers([]);
+        setTotalCustomers(0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch customers:', error);
+      toast.error('Failed to load customers');
+      setCustomers([]);
+      setTotalCustomers(0);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Search customers with debouncing
   const searchCustomers = async (query) => {
     if (!query || query.trim().length < 2) {
-      setCustomers([]);
-      setHasSearched(false);
+      setIsSearchMode(false);
+      setPage(1);
       return;
     }
 
     setLoading(true);
-    setHasSearched(true);
+    setIsSearchMode(true);
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(`${API_URL}/api/v1/customer/search?q=${encodeURIComponent(query.trim())}`, {
@@ -33,10 +63,13 @@ const CustomerList = () => {
       
       if (response.data.status && response.data.data) {
         setCustomers(response.data.data || []);
+        setTotalCustomers(response.data.data?.length || 0);
       } else if (response.data.success && response.data.customers) {
         setCustomers(response.data.customers || []);
+        setTotalCustomers(response.data.customers?.length || 0);
       } else {
         setCustomers([]);
+        setTotalCustomers(0);
       }
     } catch (error) {
       console.error('Failed to search customers:', error);
@@ -44,32 +77,91 @@ const CustomerList = () => {
         toast.error('Failed to search customers');
       }
       setCustomers([]);
+      setTotalCustomers(0);
     } finally {
       setLoading(false);
     }
   };
+
+  // Load customers on mount and when page/itemsPerPage changes
+  useEffect(() => {
+    if (!isSearchMode) {
+      fetchMyCustomers();
+    }
+  }, [page, itemsPerPage, isSearchMode]);
 
   // Debounce search
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchQuery) {
         searchCustomers(searchQuery);
+      } else {
+        setIsSearchMode(false);
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  // Paginated customers (no client-side filtering, API does it)
-  const paginatedCustomers = useMemo(() => {
-    const startIndex = page * rowsPerPage;
-    return customers.slice(startIndex, startIndex + rowsPerPage);
-  }, [customers, page, rowsPerPage]);
-
-  const totalPages = Math.ceil(customers.length / rowsPerPage);
+  const totalPages = Math.ceil(totalCustomers / itemsPerPage);
 
   const handleViewCustomer = (customer) => {
     setViewDialog({ open: true, customer });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editDialog.customer) return;
+
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(
+        `${API_URL}/api/v1/customer/${editDialog.customer._id}`,
+        editDialog.customer,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      toast.success('Customer updated successfully');
+      setEditDialog({ open: false, customer: null });
+      
+      // Refresh the list
+      if (isSearchMode) {
+        searchCustomers(searchQuery);
+      } else {
+        fetchMyCustomers();
+      }
+    } catch (error) {
+      console.error('Failed to update customer:', error);
+      toast.error('Failed to update customer');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditFieldChange = (field, value, nestedField = null) => {
+    setEditDialog(prev => {
+      if (nestedField) {
+        // Handle nested object updates (e.g., address.city, governmentId.number)
+        return {
+          ...prev,
+          customer: {
+            ...prev.customer,
+            [field]: {
+              ...prev.customer[field],
+              [nestedField]: value
+            }
+          }
+        };
+      }
+      // Handle simple field updates
+      return {
+        ...prev,
+        customer: {
+          ...prev.customer,
+          [field]: value
+        }
+      };
+    });
   };
 
   const formatDate = (dateString) => {
@@ -92,12 +184,31 @@ const CustomerList = () => {
                 <UserCog className="text-white" size={28} />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customer Management</h1>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">All Customers</h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {hasSearched ? `${customers.length} customer${customers.length !== 1 ? 's' : ''} found` : 'Search by name, email, phone, or customer ID'}
+                  {isSearchMode ? `${totalCustomers} customer${totalCustomers !== 1 ? 's' : ''} found` : `${totalCustomers} total customers in organization`}
                 </p>
               </div>
             </div>
+            
+            {/* Items per page selector */}
+            {!isSearchMode && (
+              <div className="flex items-center gap-2 mb-3">
+                <label className="text-sm text-gray-600 dark:text-gray-400">Show:</label>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Search Bar */}
@@ -127,27 +238,17 @@ const CustomerList = () => {
         <div className="flex-1 overflow-y-auto">
 
           {/* Empty State */}
-          {!hasSearched && !loading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <Search size={64} className="mx-auto mb-4 text-gray-400" />
-                <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Search for Customers
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400">
-                  Enter at least 2 characters in the search box to find customers
-                </p>
-              </div>
-            </div>
-          ) : customers.length === 0 && hasSearched && !loading ? (
+          {customers.length === 0 && !loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <UserCog size={64} className="mx-auto mb-4 text-gray-400" />
                 <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  No Customers Found
+                  {isSearchMode ? 'No Customers Found' : 'No Customers Yet'}
                 </h3>
                 <p className="text-gray-500 dark:text-gray-400">
-                  No customers match your search: "{searchQuery}"
+                  {isSearchMode 
+                    ? `No customers match your search: "${searchQuery}"` 
+                    : 'No customers in your organization yet'}
                 </p>
               </div>
             </div>
@@ -164,12 +265,13 @@ const CustomerList = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Mobile</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Location</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Joined</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {paginatedCustomers.map((customer) => (
+                    {customers.map((customer) => (
                       <tr
                         key={customer._id}
                         className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -236,21 +338,49 @@ const CustomerList = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          {customer.createdBy ? (
+                            <div className="flex items-center gap-2">
+                              <User size={14} className="text-gray-400 flex-shrink-0" />
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {customer.createdBy.name}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {customer.createdBy.role}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">Unknown</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                             <Calendar size={14} className="flex-shrink-0" />
                             <span>{formatDate(customer.createdAt)}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <Tooltip title="View Details">
-                            <IconButton
-                              onClick={() => handleViewCustomer(customer)}
-                              size="small"
-                              className="text-teal-600 hover:bg-teal-50"
-                            >
-                              <Eye size={18} />
-                            </IconButton>
-                          </Tooltip>
+                          <div className="flex items-center gap-1">
+                            <Tooltip title="Edit Customer">
+                              <IconButton
+                                onClick={() => setEditDialog({ open: true, customer })}
+                                size="small"
+                                className="text-teal-600 hover:bg-teal-50"
+                              >
+                                <Edit size={18} />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="View Details">
+                              <IconButton
+                                onClick={() => handleViewCustomer(customer)}
+                                size="small"
+                                className="text-cyan-600 hover:bg-cyan-50"
+                              >
+                                <Eye size={18} />
+                              </IconButton>
+                            </Tooltip>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -259,29 +389,29 @@ const CustomerList = () => {
               </div>
 
               {/* Pagination */}
-              {totalPages > 1 && (
+              {!isSearchMode && totalPages > 1 && (
                 <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Showing {page * rowsPerPage + 1} to {Math.min((page + 1) * rowsPerPage, customers.length)} of {customers.length} customers
+                      Showing {((page - 1) * itemsPerPage) + 1} to {Math.min(page * itemsPerPage, totalCustomers)} of {totalCustomers} customers
                     </p>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setPage(Math.max(0, page - 1))}
-                        disabled={page === 0}
-                        className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg 
-                                 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        onClick={() => setPage(Math.max(1, page - 1))}
+                        disabled={page === 1}
+                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg 
+                                 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         Previous
                       </button>
                       <span className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                        Page {page + 1} of {totalPages}
+                        Page {page} of {totalPages}
                       </span>
                       <button
-                        onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
-                        disabled={page >= totalPages - 1}
-                        className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg 
-                                 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        onClick={() => setPage(Math.min(totalPages, page + 1))}
+                        disabled={page >= totalPages}
+                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg 
+                                 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         Next
                       </button>
@@ -330,96 +460,118 @@ const CustomerList = () => {
                     <label className="text-gray-500 dark:text-gray-400">Mobile</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.mobile || 'N/A'}</p>
                   </div>
-                  {viewDialog.customer.alternatePhone && (
-                    <div>
-                      <label className="text-gray-500 dark:text-gray-400">Alternate Phone</label>
-                      <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.alternatePhone}</p>
-                    </div>
-                  )}
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Alternate Phone</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.alternatePhone || 'N/A'}</p>
+                  </div>
                 </div>
               </div>
 
               {/* Address */}
-              {viewDialog.customer.address && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Address</h3>
-                  <div className="text-sm space-y-2">
-                    <p className="text-gray-700 dark:text-gray-300">
-                      {viewDialog.customer.address.street && `${viewDialog.customer.address.street}, `}
-                      {viewDialog.customer.address.locality && `${viewDialog.customer.address.locality}, `}
-                      {viewDialog.customer.address.city && `${viewDialog.customer.address.city}, `}
-                      {viewDialog.customer.address.state && `${viewDialog.customer.address.state}, `}
-                      {viewDialog.customer.address.country && viewDialog.customer.address.country}
-                      {viewDialog.customer.address.postalCode && ` - ${viewDialog.customer.address.postalCode}`}
-                    </p>
-                    {viewDialog.customer.address.landmark && (
-                      <p className="text-gray-500 dark:text-gray-400">
-                        Landmark: {viewDialog.customer.address.landmark}
-                      </p>
-                    )}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Address</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Street</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.street || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Locality</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.locality || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">City</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.city || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">State</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.state || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Country</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.country || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Postal Code</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.postalCode || 'N/A'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-gray-500 dark:text-gray-400">Landmark</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.landmark || 'N/A'}</p>
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* Government ID */}
-              {viewDialog.customer.governmentId?.number && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Government ID</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <label className="text-gray-500 dark:text-gray-400">Type</label>
-                      <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.governmentId.type}</p>
-                    </div>
-                    <div>
-                      <label className="text-gray-500 dark:text-gray-400">Number</label>
-                      <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.governmentId.number}</p>
-                    </div>
-                    {viewDialog.customer.governmentId.issuedDate && (
-                      <div>
-                        <label className="text-gray-500 dark:text-gray-400">Issued Date</label>
-                        <p className="font-medium text-gray-900 dark:text-white">{formatDate(viewDialog.customer.governmentId.issuedDate)}</p>
-                      </div>
-                    )}
-                    {viewDialog.customer.governmentId.expiryDate && (
-                      <div>
-                        <label className="text-gray-500 dark:text-gray-400">Expiry Date</label>
-                        <p className="font-medium text-gray-900 dark:text-white">{formatDate(viewDialog.customer.governmentId.expiryDate)}</p>
-                      </div>
-                    )}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Government ID</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Type</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.governmentId?.type || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Number</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.governmentId?.number || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Issued Date</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{formatDate(viewDialog.customer.governmentId?.issuedDate) || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Expiry Date</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{formatDate(viewDialog.customer.governmentId?.expiryDate) || 'N/A'}</p>
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* Service Info */}
-              {(viewDialog.customer.planType || viewDialog.customer.serviceStatus) && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Service Information</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    {viewDialog.customer.planType && (
-                      <div>
-                        <label className="text-gray-500 dark:text-gray-400">Plan Type</label>
-                        <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.planType}</p>
-                      </div>
-                    )}
-                    {viewDialog.customer.billingType && (
-                      <div>
-                        <label className="text-gray-500 dark:text-gray-400">Billing Type</label>
-                        <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.billingType}</p>
-                      </div>
-                    )}
-                    {viewDialog.customer.serviceStatus && (
-                      <div>
-                        <label className="text-gray-500 dark:text-gray-400">Service Status</label>
-                        <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.serviceStatus}</p>
-                      </div>
-                    )}
-                    {viewDialog.customer.activationDate && (
-                      <div>
-                        <label className="text-gray-500 dark:text-gray-400">Activation Date</label>
-                        <p className="font-medium text-gray-900 dark:text-white">{formatDate(viewDialog.customer.activationDate)}</p>
-                      </div>
-                    )}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Service Information</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Plan Type</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.planType || 'N/A'}</p>
                   </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Billing Type</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.billingType || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Billing Cycle</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.billingCycle || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Validity Period</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.validityPeriod || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Service Status</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.serviceStatus || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Activation Date</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{formatDate(viewDialog.customer.activationDate) || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-500 dark:text-gray-400">Deactivation Date</label>
+                    <p className="font-medium text-gray-900 dark:text-white">{formatDate(viewDialog.customer.deactivationDate) || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Creator Info */}
+              {viewDialog.customer.createdBy && (
+                <div className="bg-teal-50 dark:bg-teal-900/20 p-3 rounded-lg">
+                  <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Created By</h3>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">{viewDialog.customer.createdBy.name}</span>
+                    <span className="mx-2">•</span>
+                    <span className="text-teal-600 dark:text-teal-400">{viewDialog.customer.createdBy.role}</span>
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {viewDialog.customer.createdBy.email}
+                  </p>
                 </div>
               )}
             </div>
@@ -431,6 +583,352 @@ const CustomerList = () => {
             className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
           >
             Close
+          </button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Customer Dialog */}
+      <Dialog
+        open={editDialog.open}
+        onClose={() => !saving && setEditDialog({ open: false, customer: null })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle className="bg-gradient-to-r from-teal-700 to-cyan-800 text-white">
+          <div className="flex items-center gap-3">
+            <Edit size={24} />
+            <span>Edit Customer</span>
+          </div>
+        </DialogTitle>
+        <DialogContent className="mt-4">
+          {editDialog.customer && (
+            <div className="space-y-4">
+              {/* Basic Info */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Basic Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Customer ID
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.customerId || ''}
+                      onChange={(e) => handleEditFieldChange('customerId', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.name || ''}
+                      onChange={(e) => handleEditFieldChange('name', e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={editDialog.customer.email || ''}
+                      onChange={(e) => handleEditFieldChange('email', e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Mobile <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={editDialog.customer.mobile || ''}
+                      onChange={(e) => handleEditFieldChange('mobile', e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Alternate Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={editDialog.customer.alternatePhone || ''}
+                      onChange={(e) => handleEditFieldChange('alternatePhone', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Address */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Address</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Street
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.address?.street || ''}
+                      onChange={(e) => handleEditFieldChange('address', e.target.value, 'street')}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Locality
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.address?.locality || ''}
+                      onChange={(e) => handleEditFieldChange('address', e.target.value, 'locality')}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.address?.city || ''}
+                      onChange={(e) => handleEditFieldChange('address', e.target.value, 'city')}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      State
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.address?.state || ''}
+                      onChange={(e) => handleEditFieldChange('address', e.target.value, 'state')}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Country
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.address?.country || ''}
+                      onChange={(e) => handleEditFieldChange('address', e.target.value, 'country')}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Postal Code
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.address?.postalCode || ''}
+                      onChange={(e) => handleEditFieldChange('address', e.target.value, 'postalCode')}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Landmark
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.address?.landmark || ''}
+                      onChange={(e) => handleEditFieldChange('address', e.target.value, 'landmark')}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Government ID */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Government ID</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Type
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.governmentId?.type || ''}
+                      onChange={(e) => handleEditFieldChange('governmentId', e.target.value, 'type')}
+                      placeholder="e.g., Aadhaar, PAN, Passport"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Number
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.governmentId?.number || ''}
+                      onChange={(e) => handleEditFieldChange('governmentId', e.target.value, 'number')}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Issued Date
+                    </label>
+                    <input
+                      type="date"
+                      value={editDialog.customer.governmentId?.issuedDate || ''}
+                      onChange={(e) => handleEditFieldChange('governmentId', e.target.value, 'issuedDate')}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Expiry Date
+                    </label>
+                    <input
+                      type="date"
+                      value={editDialog.customer.governmentId?.expiryDate || ''}
+                      onChange={(e) => handleEditFieldChange('governmentId', e.target.value, 'expiryDate')}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Service Information */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Service Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Plan Type
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.planType || ''}
+                      onChange={(e) => handleEditFieldChange('planType', e.target.value)}
+                      placeholder="e.g., Premium, Basic"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Billing Type
+                    </label>
+                    <select
+                      value={editDialog.customer.billingType || ''}
+                      onChange={(e) => handleEditFieldChange('billingType', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    >
+                      <option value="">Select Type</option>
+                      <option value="Prepaid">Prepaid</option>
+                      <option value="Postpaid">Postpaid</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Billing Cycle
+                    </label>
+                    <select
+                      value={editDialog.customer.billingCycle || ''}
+                      onChange={(e) => handleEditFieldChange('billingCycle', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    >
+                      <option value="">Select Cycle</option>
+                      <option value="Monthly">Monthly</option>
+                      <option value="Quarterly">Quarterly</option>
+                      <option value="Half-Yearly">Half-Yearly</option>
+                      <option value="Yearly">Yearly</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Validity Period
+                    </label>
+                    <input
+                      type="text"
+                      value={editDialog.customer.validityPeriod || ''}
+                      onChange={(e) => handleEditFieldChange('validityPeriod', e.target.value)}
+                      placeholder="e.g., 30 Days, 1 Year"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Service Status
+                    </label>
+                    <select
+                      value={editDialog.customer.serviceStatus || 'Active'}
+                      onChange={(e) => handleEditFieldChange('serviceStatus', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                      <option value="Suspended">Suspended</option>
+                      <option value="Pending">Pending</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Activation Date
+                    </label>
+                    <input
+                      type="date"
+                      value={editDialog.customer.activationDate || ''}
+                      onChange={(e) => handleEditFieldChange('activationDate', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Deactivation Date
+                    </label>
+                    <input
+                      type="date"
+                      value={editDialog.customer.deactivationDate || ''}
+                      onChange={(e) => handleEditFieldChange('deactivationDate', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Creator Info (Read-only) */}
+              {editDialog.customer.createdBy && (
+                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Created by: <span className="font-medium text-gray-900 dark:text-white">
+                      {editDialog.customer.createdBy.name} ({editDialog.customer.createdBy.role})
+                    </span>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <button
+            onClick={() => setEditDialog({ open: false, customer: null })}
+            disabled={saving}
+            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSaveEdit}
+            disabled={saving || !editDialog.customer?.name || !editDialog.customer?.email || !editDialog.customer?.mobile}
+            className="px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white rounded-lg transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </DialogActions>
       </Dialog>

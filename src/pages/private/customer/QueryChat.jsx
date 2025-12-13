@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Send, Phone, Video, MoreVertical, CheckCircle, 
@@ -94,6 +94,10 @@ export default function QueryChat() {
   // Customer Details Panel state
   const [showCustomerPanel, setShowCustomerPanel] = useState(false);
   const [customerPanelData, setCustomerPanelData] = useState(null);
+  
+  // Suggested Messages state
+  const [suggestedMessages, setSuggestedMessages] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   
   const mainSocket = getSocket();
   const colorMode = useContext(ColorModeContext);
@@ -436,6 +440,106 @@ export default function QueryChat() {
         userName: currentUser.name,
         isTyping: true
       });
+    }
+  };
+
+  // Generate suggested messages based on context
+  const generateSuggestions = useCallback((lastCustomerMessage, queryStatus) => {
+    const greetingMessages = [
+      "Hello! How can I assist you today?",
+      "Hi there! I'm here to help you.",
+      "Good day! Thank you for reaching out to us.",
+      "Welcome! I'll be happy to assist you."
+    ];
+
+    const acknowledgmentMessages = [
+      "Thank you for providing that information.",
+      "I understand your concern. Let me help you with that.",
+      "Got it! I'm looking into this for you.",
+      "I appreciate your patience. Let me check on this."
+    ];
+
+    const resolutionMessages = [
+      "I've resolved this issue for you. Is there anything else I can help with?",
+      "Your request has been completed. Please let me know if you need further assistance.",
+      "This has been taken care of. Feel free to reach out if you have more questions.",
+      "All set! Don't hesitate to contact us again if needed."
+    ];
+
+    const followUpMessages = [
+      "Could you please provide more details about your issue?",
+      "Can you share your account information so I can assist you better?",
+      "Would you like me to escalate this to our technical team?",
+      "Is there anything specific you'd like me to check for you?"
+    ];
+
+    const closingMessages = [
+      "Thank you for contacting us. Have a great day!",
+      "Glad I could help! Feel free to reach out anytime.",
+      "You're welcome! Is there anything else I can assist you with?",
+      "Happy to help! Have a wonderful day!"
+    ];
+
+    // Determine which suggestions to show based on context
+    if (!lastCustomerMessage || localMessages.filter(m => m.sender === 'agent').length === 0) {
+      // First message - show greetings
+      return greetingMessages.slice(0, 3);
+    }
+
+    const lastMessage = lastCustomerMessage.toLowerCase();
+    
+    // Check for keywords and provide context-aware suggestions
+    if (lastMessage.includes('thank') || lastMessage.includes('thanks')) {
+      return [...closingMessages.slice(0, 2), ...followUpMessages.slice(2, 3)];
+    }
+    
+    if (lastMessage.includes('problem') || lastMessage.includes('issue') || lastMessage.includes('not working')) {
+      return [...acknowledgmentMessages.slice(0, 2), ...followUpMessages[0]];
+    }
+    
+    if (lastMessage.includes('help') || lastMessage.includes('assist') || lastMessage.includes('support')) {
+      return [...acknowledgmentMessages.slice(1, 3), ...followUpMessages[1]];
+    }
+    
+    if (lastMessage.includes('wait') || lastMessage.includes('long') || lastMessage.includes('still')) {
+      return [
+        "I apologize for the delay. Let me prioritize this for you.",
+        "Thank you for your patience. I'm working on this right now.",
+        "I understand this is taking longer than expected. Let me expedite this."
+      ];
+    }
+
+    if (queryStatus === 'resolved') {
+      return resolutionMessages.slice(0, 3);
+    }
+
+    // Default suggestions
+    return [...acknowledgmentMessages.slice(0, 2), ...followUpMessages[0]];
+  }, [localMessages]);
+
+  // Update suggestions when new messages arrive
+  useEffect(() => {
+    if (isAgent && localMessages.length > 0) {
+      const customerMessages = localMessages.filter(m => {
+        // Check if sender is either 'customer' or has customer role
+        if (typeof m.sender === 'string') {
+          return m.sender === 'customer';
+        }
+        return m.sender?.role === 'Customer' || m.senderRole === 'Customer';
+      });
+      const lastCustomerMessage = customerMessages[customerMessages.length - 1];
+      const messageText = lastCustomerMessage?.message || lastCustomerMessage?.text;
+      const suggestions = generateSuggestions(messageText, query?.status);
+      setSuggestedMessages(suggestions);
+    }
+  }, [localMessages, query?.status, isAgent, generateSuggestions]);
+
+  // Handle suggestion click
+  const handleSuggestionClick = (suggestion) => {
+    setMessage(suggestion);
+    setShowSuggestions(false);
+    if (messageInputRef.current) {
+      messageInputRef.current.focus();
     }
   };
 
@@ -1574,15 +1678,58 @@ export default function QueryChat() {
               )}
             </div>
           ) : (
-            <form onSubmit={handleSendMessage} className="flex items-start gap-2">
-              {/* <button
-                type="button"
-                className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors hidden sm:block"
-              >
-                <Paperclip size={20} className="text-gray-600 dark:text-gray-400" />
-              </button> */}
-              
-              <div className="flex-1 relative">
+            <div className="space-y-3">
+              {/* Suggested Messages */}
+              {isAgent && showSuggestions && suggestedMessages.length > 0 && (
+                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-3 rounded-xl border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <BookOpen size={16} className="text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Suggested Replies</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowSuggestions(!showSuggestions)}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                    >
+                      Hide
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedMessages.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        className="px-3 py-2 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!showSuggestions && isAgent && suggestedMessages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowSuggestions(true)}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 flex items-center gap-1"
+                >
+                  <BookOpen size={14} />
+                  Show Suggestions
+                </button>
+              )}
+
+              <form onSubmit={handleSendMessage} className="flex items-start gap-2">
+                {/* <button
+                  type="button"
+                  className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors hidden sm:block"
+                >
+                  <Paperclip size={20} className="text-gray-600 dark:text-gray-400" />
+                </button> */}
+                
+                <div className="flex-1 relative">
                 <textarea
                   ref={messageInputRef}
                   value={message}
@@ -1657,6 +1804,7 @@ export default function QueryChat() {
                 )}
               </button>
             </form>
+            </div>
           )}
         </div>
       ) : (

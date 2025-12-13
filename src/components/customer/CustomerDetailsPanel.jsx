@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, Save, Search, User, Phone, Mail, MapPin, CreditCard, 
-  Calendar, FileText, Building, Hash, Globe
+  Calendar, FileText, Building, Hash, Globe, Edit2, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import Select from 'react-select';
@@ -19,6 +19,15 @@ export default function CustomerDetailsPanel({
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [totalCustomers, setTotalCustomers] = useState(0);
+  const [customerList, setCustomerList] = useState([]);
+  const [isLoadingList, setIsLoadingList] = useState(false);
 
   // Address selection state
   const [selectedCountry, setSelectedCountry] = useState(null);
@@ -66,6 +75,13 @@ export default function CustomerDetailsPanel({
     name: country.name,
     isoCode: country.isoCode
   }));
+
+  // Load recent customers on mount
+  useEffect(() => {
+    if (isOpen && !isSearchMode) {
+      fetchRecentCustomers();
+    }
+  }, [isOpen, currentPage, itemsPerPage]);
 
   // Initialize with query customer info if available
   useEffect(() => {
@@ -194,9 +210,33 @@ export default function CustomerDetailsPanel({
     }
   };
 
+  const fetchRecentCustomers = async () => {
+    setIsLoadingList(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/v1/customer/list?page=${currentPage}&limit=${itemsPerPage}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      const data = await response.json();
+      if (data.status) {
+        setCustomerList(data.data || []);
+        setTotalCustomers(data.total || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch customers:', error);
+    } finally {
+      setIsLoadingList(false);
+    }
+  };
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      toast.warning('Please enter search query');
+      setIsSearchMode(false);
+      fetchRecentCustomers();
       return;
     }
 
@@ -225,6 +265,8 @@ export default function CustomerDetailsPanel({
   };
 
   const handleSelectCustomer = (customer) => {
+    setSelectedCustomerId(customer._id);
+    setIsEditMode(false); // Start in view mode
     setFormData({
       customerId: customer.customerId || '',
       name: customer.name || '',
@@ -381,11 +423,12 @@ export default function CustomerDetailsPanel({
 
     setIsSaving(true);
     try {
-      const url = customerId 
-        ? `${import.meta.env.VITE_API_URL}/api/v1/customer/${customerId}`
+      const isUpdate = customerId || selectedCustomerId;
+      const url = isUpdate
+        ? `${import.meta.env.VITE_API_URL}/api/v1/customer/${customerId || selectedCustomerId}`
         : `${import.meta.env.VITE_API_URL}/api/v1/customer/create`;
       
-      const method = customerId ? 'PUT' : 'POST';
+      const method = isUpdate ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
@@ -398,9 +441,14 @@ export default function CustomerDetailsPanel({
 
       const data = await response.json();
       if (data.status) {
-        toast.success(customerId ? 'Customer updated successfully' : 'Customer created successfully');
+        toast.success(isUpdate ? 'Customer updated successfully' : 'Customer created successfully');
         if (onSave) onSave(data.data);
-        onClose();
+        if (isEditMode) {
+          setIsEditMode(false); // Exit edit mode after save
+        }
+        if (!isUpdate) {
+          onClose(); // Close panel only on create
+        }
       } else {
         toast.error(data.message || 'Operation failed');
       }
@@ -455,10 +503,28 @@ export default function CustomerDetailsPanel({
         <div className="flex items-center gap-2">
           <User size={20} />
           <h3 className="font-semibold text-lg">
-            {customerId ? 'Customer Details' : 'Create Customer ID'}
+            {isSearchMode 
+              ? 'Search Customers' 
+              : isEditMode 
+                ? 'Edit Customer' 
+                : selectedCustomerId 
+                  ? 'Customer Details' 
+                  : queryCustomerInfo 
+                    ? 'Create Customer ID'
+                    : 'Customer List'
+            }
           </h3>
         </div>
         <div className="flex items-center gap-2">
+          {!isSearchMode && selectedCustomerId && !isEditMode && (
+            <button
+              onClick={() => setIsEditMode(true)}
+              className="p-2 hover:bg-teal-800 rounded-lg transition-colors"
+              title="Edit Customer"
+            >
+              <Edit2 size={18} />
+            </button>
+          )}
           {!isSearchMode && (
             <button
               onClick={() => setIsSearchMode(true)}
@@ -537,6 +603,91 @@ export default function CustomerDetailsPanel({
               </div>
             )}
           </div>
+        ) : !selectedCustomerId && !queryCustomerInfo ? (
+          <div className="space-y-4">
+            {/* Recent Customers List */}
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-semibold text-gray-900 dark:text-white">Recent Customers</h4>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-600 dark:text-gray-400">Per page:</label>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            {isLoadingList ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+              </div>
+            ) : customerList.length > 0 ? (
+              <div className="space-y-2">
+                {customerList.map((customer) => (
+                  <div
+                    key={customer._id}
+                    onClick={() => handleSelectCustomer(customer)}
+                    className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{customer.name}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{customer.email}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{customer.mobile}</p>
+                      </div>
+                      {customer.customerId && (
+                        <span className="px-2 py-1 bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 text-xs rounded">
+                          {customer.customerId}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                No customers found
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalCustomers > 0 && (
+              <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalCustomers)} of {totalCustomers} customers
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 flex items-center gap-1"
+                  >
+                    <ChevronLeft size={16} />
+                    Previous
+                  </button>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Page {currentPage} of {Math.ceil(totalCustomers / itemsPerPage)}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalCustomers / itemsPerPage), prev + 1))}
+                    disabled={currentPage >= Math.ceil(totalCustomers / itemsPerPage)}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 flex items-center gap-1"
+                  >
+                    Next
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <form className="space-y-6">
             {/* Basic Information */}
@@ -556,8 +707,11 @@ export default function CustomerDetailsPanel({
                     name="customerId"
                     value={formData.customerId}
                     onChange={handleChange}
-                    placeholder="Auto-generated if empty"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    placeholder="Auto-generated (CUST + 8 digits)"
+                    readOnly={selectedCustomerId && !isEditMode}
+                    className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm ${
+                      selectedCustomerId && !isEditMode ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : 'bg-white dark:bg-gray-800'
+                    }`}
                   />
                 </div>
                 
@@ -950,22 +1104,33 @@ export default function CustomerDetailsPanel({
       </div>
 
       {/* Footer */}
-      {!isSearchMode && (
+      {!isSearchMode && (isEditMode || (selectedCustomerId && !isEditMode)) && (
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex gap-2">
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white rounded-lg transition-all font-medium disabled:opacity-50"
-          >
-            <Save size={18} />
-            {isSaving ? 'Saving...' : 'Save Customer'}
-          </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
+          {isEditMode ? (
+            <>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white rounded-lg transition-all font-medium disabled:opacity-50"
+              >
+                <Save size={18} />
+                {isSaving ? 'Saving...' : 'Update Customer'}
+              </button>
+              <button
+                onClick={() => setIsEditMode(false)}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+            >
+              Close
+            </button>
+          )}
         </div>
       )}
     </div>
