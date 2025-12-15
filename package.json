@@ -19,7 +19,7 @@
     "@reduxjs/toolkit": "^2.8.2",
     "aos": "^2.3.4",
     "axios": "^1.11.0",
-    "bitmax-crm-widget": "^1.2.46",
+    "bitmax-crm-widget": "^1.2.47",
     "chart.js": "^4.5.1",
     "chartjs": "^0.3.24",
     "country-state-city": "^3.2.1",
