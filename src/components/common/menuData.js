@@ -13,6 +13,7 @@ import {
     Activity, 
     MessageSquare,
     FileText,
+    BookOpen,
     Headphones,
     UserCheck,
     Settings,
@@ -60,6 +61,9 @@ export const menuData = {
             },
             {
                 name: "FAQs Management", icon: FileText, route: "/admin/faq-management",
+            },
+            {
+                name: "Training Material", icon: BookOpen, route: "/admin/training-material",
             },
 
             {
@@ -141,6 +145,9 @@ export const menuData = {
             {
                 name: "Screenshots", icon: Camera, route: "/qa/screenshots",
             },
+            {
+                name: "Training Material", icon: BookOpen, route: "/qa/training-material",
+            },
             // {
             //     name: "Team", icon: UsersRound, route: "/qa/team",
             // },
@@ -157,6 +164,7 @@ export const menuData = {
             // { name: "Calls", icon: Phone, route: "/tl/calls" },
             { name: "Customers", icon: UserCog, route: "/tl/customers" },
             { name: "Screenshots", icon: Camera, route: "/tl/screenshots" },
+            { name: "Training Material", icon: BookOpen, route: "/tl/training-material" },
         ]
     }],
     Customer: [

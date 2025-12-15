@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { 
-  Search, Filter, Download, Trash2, Eye, X, Calendar, User, Phone 
+  Search, Filter, Download, Trash2, Eye, X, Calendar, User, Camera 
 } from 'lucide-react';
 import { 
   useGetAllScreenshotsQuery, 
@@ -181,14 +181,14 @@ export default function CallScreenshotGallery() {
       <div className="">
         {filteredScreenshots.length === 0 ? (
           <div className="bg-white dark:bg-gray-950 rounded-lg shadow-md p-12 text-center">
-            <Phone size={64} className="mx-auto text-gray-400 dark:text-gray-500 mb-4" />
+            <Camera size={64} className="mx-auto text-gray-400 dark:text-gray-500 mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               No screenshots found
             </h3>
             <p className="text-gray-600 dark:text-gray-400">
               {searchQuery 
                 ? 'Try adjusting your search criteria' 
-                : 'Screenshots taken during video calls will appear here'}
+                : 'Screenshots captured during queries will appear here'}
             </p>
           </div>
         ) : (
@@ -203,7 +203,7 @@ export default function CallScreenshotGallery() {
                 <div className="relative aspect-video bg-gray-200 dark:bg-gray-950">
                   <img
                     src={getImageUrl(screenshot)}
-                    alt={`Screenshot from ${screenshot.metadata?.customerName || 'call'}`}
+                    alt={`Screenshot from ${screenshot.metadata?.customerName || 'query'}`}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
@@ -344,7 +344,7 @@ export default function CallScreenshotGallery() {
                 <div className="w-full flex items-center justify-center bg-gray-100 dark:bg-gray-950 rounded-lg">
                   <img
                     src={getImageUrl(selectedImage)}
-                    alt={`Screenshot from ${selectedImage.metadata?.customerName || 'call'}`}
+                    alt={`Screenshot from ${selectedImage.metadata?.customerName || 'query'}`}
                     className="max-h-[65vh] w-auto h-auto object-contain rounded-md"
                   />
                 </div>

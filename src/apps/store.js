@@ -13,6 +13,7 @@ import { emailApi } from '../features/email/emailApi';
 import { geocamApi } from '../features/geocam/geocamApi';
 import { emailTicketApi } from '../features/emailTicket/emailTicketApi';
 import { faqApi } from '../features/faq/faqApi';
+import { trainingMaterialApi } from '../features/trainingMaterial/trainingMaterialApi';
 
 
 export const store = configureStore({
@@ -31,6 +32,7 @@ export const store = configureStore({
     [geocamApi.reducerPath]: geocamApi.reducer,
     [emailTicketApi.reducerPath]: emailTicketApi.reducer,
     [faqApi.reducerPath]: faqApi.reducer,
+    [trainingMaterialApi.reducerPath]: trainingMaterialApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
@@ -47,5 +49,6 @@ export const store = configureStore({
       .concat(qaEvaluationApi.middleware)
       .concat(geocamApi.middleware)
       .concat(emailTicketApi.middleware)
-      .concat(faqApi.middleware),
+      .concat(faqApi.middleware)
+      .concat(trainingMaterialApi.middleware),
 });

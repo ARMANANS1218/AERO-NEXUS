@@ -170,15 +170,8 @@ export default function QueryChat() {
   // Agent can message only if: currently assigned AND not the one who escalated it away
   const canSendMessage = isCustomer || (isAgent && assignedToId === currentUser?._id && !wasEscalatedByCurrentUser);
   const isWaitingForAssignment = isAgent && !assignedToId;
-  const isNotAuthorized = isAgent && (!isQueryAccepted || wasEscalatedByCurrentUser);
-  const canViewChat = isCustomer || (isAgent && (isQueryAccepted && assignedToId === currentUser?._id && !wasEscalatedByCurrentUser));
-
-  // Show toast when user tries to access unauthorized chat
-  useEffect(() => {
-    if (isNotAuthorized && !isWaitingForAssignment && petitionId) {
-      toast.error('You are not authorized to message in this chat', { autoClose: 4000 });
-    }
-  }, [isNotAuthorized, isWaitingForAssignment, petitionId]);
+  const isNotAuthorized = false; // Allow viewing for all
+  const canViewChat = true; // Everyone can view the chat (TL, QA, Agent)
 
   // Auto-populate customer data when found
   useEffect(() => {
@@ -1546,26 +1539,6 @@ export default function QueryChat() {
       </div>
 
       {/* Messages Container */}
-      {!canViewChat && isAgent ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-4 px-6">
-            <div className="w-24 h-24 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-              <AlertCircle size={48} className="text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Not Authorized
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300 text-lg">
-                {isWaitingForAssignment 
-                  ? 'You are not yet assigned to this query. Please wait for assignment.'
-                  : 'You are not authorized to message in this chat'
-                }
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : (
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 scrollbar-hide">
   {displayMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -1724,8 +1697,6 @@ export default function QueryChat() {
           </>
         )}
       </div>
-      )}
-      {/* End Messages Container Conditional */}
 
       {/* Input Area */}
       {query.status !== 'Resolved' && query.status !== 'Expired' ? (

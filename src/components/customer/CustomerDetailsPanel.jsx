@@ -1269,7 +1269,7 @@ export default function CustomerDetailsPanel({
                     name="customerId"
                     value={formData.customerId}
                     onChange={handleChange}
-                    placeholder="Auto-generated (CUST + 8 digits)"
+                    placeholder="Auto-generated (BM/8-digits/YY)"
                     readOnly={selectedCustomerId && !isEditMode}
                     className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm ${
                       selectedCustomerId && !isEditMode ? 'bg-gray-100 dark:bg-gray-950 cursor-not-allowed' : 'bg-white dark:bg-gray-950'

@@ -27,6 +27,8 @@ const LocationAccess = lazy(() => import("../pages/private/admin/LocationAccess"
 const LocationSettings = lazy(() => import("../pages/private/admin/LocationSettings"));
 const SuperAdminLocationSettings = lazy(() => import("../pages/superadmin/SuperAdminLocationSettings"));
 const FaqManagement = lazy(() => import("../pages/private/admin/FAQManagement"));
+const TrainingMaterialManagement = lazy(() => import("../pages/private/training-material/TrainingMaterialManagement"));
+const TrainingMaterialView = lazy(() => import("../pages/private/training-material/TrainingMaterialView"));
 const IpConfiguration = lazy(() => import("../pages/admin/IpConfiguration"));
 const OrganizationIpConfig = lazy(() => import("../pages/admin/OrganizationIpConfig"));
 const AgentsPerformance = lazy(() => import("../pages/private/admin/reports/AgentsPerformance"));
@@ -87,6 +89,7 @@ const adminChildren = [
   { path: "location-access", element: <LocationAccess /> },
   { path: "location-settings", element: <LocationSettings /> },
   { path: "faq-management", element: <FaqManagement /> },
+  { path: "training-material", element: <TrainingMaterialManagement /> },
   { path: "ip-configuration", element: <IpConfiguration /> },
   { path: "organization-ip-config", element: <OrganizationIpConfig /> },
   { path: "screenshots", element: <CallScreenshotGallery /> },
@@ -118,6 +121,7 @@ const qaChildren = [
   { path: "customers", element: <CustomerList /> },
   { path: "customers/:customerId", element: <CustomerDetails /> },
   { path: "screenshots", element: <CallScreenshotGallery /> },
+  { path: "training-material", element: <TrainingMaterialView /> },
   { path: "profile", element: <QAProfile /> },
   {
     path: "ticketing",
@@ -144,6 +148,7 @@ const tlChildren = [
   { path: "customers", element: <CustomerList /> },
   { path: "customers/:customerId", element: <CustomerDetails /> },
   { path: "screenshots", element: <CallScreenshotGallery /> },
+  { path: "training-material", element: <TrainingMaterialView /> },
   { path: "profile", element: <QAProfile /> },
   {
     path: "ticketing",
