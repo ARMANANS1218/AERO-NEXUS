@@ -16,7 +16,7 @@ import {
   CssBaseline,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import { Menu as MenuIcon, Bell, Sun, Moon, Maximize, Minimize, Clock } from "lucide-react";
+import { Menu as MenuIcon, Bell, Sun, Moon, Maximize, Minimize, Clock, Volume2, VolumeX } from "lucide-react";
 import Sidebar from "../common/Sidebar";
 import ProfileCard from "../common/ProfileCard";
 import ColorModeContext from "../../context/ColorModeContext";
@@ -26,6 +26,7 @@ import Notification from "../common/Notification";
 import QueryNotificationPopup from "../QueryNotificationPopup";
 import { toast } from "react-toastify";
 import { IMG_PROFILE_URL } from "../../config/api";
+import { useNotificationSoundContext } from "../../context/NotificationSoundContext";
 
 const drawerWidth = 200;
 
@@ -49,6 +50,7 @@ const UniversalAppbar = ({ children }) => {
   const colorMode = useContext(ColorModeContext);
   const { data, refetch } = useGetProfileQuery();
   const [toggleBreak, { isLoading }] = useToggleBreakMutation();
+  const { enabled: soundEnabled, setEnabled: setSoundEnabled } = useNotificationSoundContext();
 
   const agent = data?.data;
   const role = data?.data?.role;
@@ -384,6 +386,22 @@ const UniversalAppbar = ({ children }) => {
                 </Tooltip>
               )}
             </Stack>
+
+            <Tooltip title={soundEnabled ? "Mute Notification Sounds" : "Unmute Notification Sounds"}>
+              <IconButton 
+                onClick={() => {
+                  setSoundEnabled(!soundEnabled);
+                  toast.success(soundEnabled ? "Notification sounds muted" : "Notification sounds enabled", {
+                    position: "top-center",
+                    autoClose: 2000,
+                  });
+                }}
+                className="text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
+                size="small"
+              >
+                {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              </IconButton>
+            </Tooltip>
 
             <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}>
               <IconButton 

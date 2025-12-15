@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Menu, Bell, Sun, Moon, Maximize, Minimize, X } from "lucide-react";
+import { Menu, Bell, Sun, Moon, Maximize, Minimize, X, Volume2, VolumeX } from "lucide-react";
 import ColorModeContext from "../../context/ColorModeContext";
 import Sidebar from "../common/Sidebar";
 import ProfileCard from "../../pages/private/customer/ProfileCard";
 import { useGetProfileQuery } from "../../features/auth/authApi";
 import { IMG_PROFILE_URL } from "../../config/api";
+import { useNotificationSoundContext } from "../../context/NotificationSoundContext";
 
 const CustomerAppbar = ({ children }) => {
   const [open, setOpen] = useState(() =>
@@ -17,6 +18,7 @@ const CustomerAppbar = ({ children }) => {
   const colorMode = useContext(ColorModeContext);
   const navigate = useNavigate();
   const { data } = useGetProfileQuery();
+  const { enabled: soundEnabled, setEnabled: setSoundEnabled } = useNotificationSoundContext();
 
   const role = data?.data?.role;
   const isDark = document.documentElement.classList.contains("dark");
@@ -100,6 +102,21 @@ const CustomerAppbar = ({ children }) => {
 
             {/* Right: Actions - Always visible on all screens */}
             <div className="flex items-center gap-1 sm:gap-2 md:gap-3 flex-shrink-0">
+              {/* Sound Toggle */}
+              <button
+                onClick={() => {
+                  setSoundEnabled(!soundEnabled);
+                  toast.success(soundEnabled ? "Notification sounds muted" : "Notification sounds enabled", {
+                    position: "top-center",
+                    autoClose: 2000,
+                  });
+                }}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-white transition-all flex-shrink-0 hover:scale-105 active:scale-95"
+                title={soundEnabled ? "Mute Notification Sounds" : "Unmute Notification Sounds"}
+              >
+                {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              </button>
+
               {/* Fullscreen Toggle */}
               <button
                 onClick={toggleFullscreen}
