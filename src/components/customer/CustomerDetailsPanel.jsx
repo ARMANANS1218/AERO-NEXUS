@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, Save, Search, User, Phone, Mail, MapPin, CreditCard, 
-  Calendar, FileText, Building, Hash, Globe, Edit2, ChevronLeft, ChevronRight, Plus
+  Calendar, FileText, Building, Hash, Globe, Edit2, ChevronLeft, ChevronRight, Plus,
+  History, Package, ExternalLink, Eye, AlertCircle, CheckCircle, Clock, XCircle
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import Select from 'react-select';
 import { Country, State, City } from 'country-state-city';
+import { format } from 'date-fns';
 
 export default function CustomerDetailsPanel({ 
   isOpen, 
   onClose, 
   customerId = null,
+  petitionId = null, // Current query petition ID
   queryCustomerInfo = null, // Info from query (name, email from widget)
   onSave 
 }) {
@@ -29,6 +32,31 @@ export default function CustomerDetailsPanel({
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [customerList, setCustomerList] = useState([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
+
+  // Query and Plan History
+  const [activeTab, setActiveTab] = useState('info'); // 'info', 'queries', 'plans'
+  const [queryHistory, setQueryHistory] = useState([]);
+  const [planHistory, setPlanHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isAddingPlan, setIsAddingPlan] = useState(false);
+  const [showAddPlanForm, setShowAddPlanForm] = useState(false);
+
+  // New Plan Form
+  const [newPlan, setNewPlan] = useState({
+    planType: '',
+    billingType: '',
+    billingCycle: '',
+    validityPeriod: '',
+    activationDate: '',
+    deactivationDate: '',
+    serviceStatus: 'Active',
+    notes: ''
+  });
+
+  // Edit Plan State
+  const [editingPlanId, setEditingPlanId] = useState(null);
+  const [editPlanData, setEditPlanData] = useState(null);
+  const [isDeletingPlan, setIsDeletingPlan] = useState(false);
 
   // Address selection state
   const [selectedCountry, setSelectedCountry] = useState(null);
@@ -79,6 +107,275 @@ export default function CustomerDetailsPanel({
     isoCode: country.isoCode
   }));
 
+  // Fetch query history for a customer
+  const fetchQueryHistory = async (targetCustomerId) => {
+    console.log('📋 Fetching query history for customer:', targetCustomerId);
+    setIsLoadingHistory(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/v1/customer/${targetCustomerId}/query-history`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      const data = await response.json();
+      console.log('📋 Query history response:', data);
+      if (data.status) {
+        setQueryHistory(data.data || []);
+        console.log('✅ Query history loaded:', data.data?.length || 0, 'queries');
+      }
+    } catch (error) {
+      console.error('Failed to fetch query history:', error);
+      toast.error('Failed to load query history');
+    } finally {
+      setIsLoadingHistory(false); 
+    }
+  };
+
+  // Fetch plan history for a customer
+  const fetchPlanHistory = async (targetCustomerId) => {
+    console.log('📦 Fetching plan history for customer:', targetCustomerId);
+    setIsLoadingHistory(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/v1/customer/${targetCustomerId}/plan-history`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      const data = await response.json();
+      console.log('📦 Plan history response:', data);
+      if (data.status) {
+        setPlanHistory(data.data || []);
+        console.log('✅ Plan history loaded:', data.data?.length || 0, 'plans');
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch plan history:', error);
+      toast.error('Failed to load plan history');
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  // Add current query to customer
+  const handleAddQueryToCustomer = async (targetCustomerId) => {
+    console.log('➕ Adding query to customer:', { customerId: targetCustomerId, petitionId });
+    if (!petitionId) {
+      toast.error('No query to add');
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/v1/customer/add-query`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            customerId: targetCustomerId,
+            petitionId
+          })
+        }
+      );
+      const data = await response.json();
+      console.log('➕ Add query response:', data);
+      if (data.status) {
+        toast.success('Query added to customer history');
+        console.log('✅ Query added successfully');
+        if (activeTab === 'queries') {
+          fetchQueryHistory(targetCustomerId);
+        }
+      } else {
+        console.error('❌ Failed to add query:', data.message);
+        toast.error(data.message || 'Failed to add query');
+      }
+    } catch (error) {
+      toast.error('Failed to add query to customer');
+    }
+  };
+
+  // Add new plan to customer
+  const handleAddPlan = async () => {
+    if (!selectedCustomerId && !customerId) {
+      toast.error('No customer selected');
+      return;
+    }
+
+    if (!newPlan.planType || !newPlan.billingType || !newPlan.billingCycle || !newPlan.validityPeriod || !newPlan.activationDate) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setIsAddingPlan(true);
+    try {
+      const targetId = selectedCustomerId || customerId;
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/v1/customer/${targetId}/add-plan`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify(newPlan)
+        }
+      );
+      const data = await response.json();
+      if (data.status) {
+        toast.success('Plan added successfully');
+        setShowAddPlanForm(false);
+        setNewPlan({
+          planType: '',
+          billingType: '',
+          billingCycle: '',
+          validityPeriod: '',
+          activationDate: '',
+          deactivationDate: '',
+          serviceStatus: 'Active',
+          notes: ''
+        });
+        fetchPlanHistory(targetId);
+      } else {
+        toast.error(data.message || 'Failed to add plan');
+      }
+    } catch (error) {
+      toast.error('Failed to add plan');
+    } finally {
+      setIsAddingPlan(false);
+    }
+  };
+
+  // Handle new plan form changes
+  const handleNewPlanChange = (e) => {
+    const { name, value } = e.target;
+    setNewPlan(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Get status badge for query/plan status
+  const getStatusBadge = (status) => {
+    const badges = {
+      'Pending': { color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', icon: <Clock size={14} /> },
+      'Accepted': { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', icon: <CheckCircle size={14} /> },
+      'In Progress': { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200', icon: <AlertCircle size={14} /> },
+      'Resolved': { color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', icon: <CheckCircle size={14} /> },
+      'Expired': { color: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200', icon: <XCircle size={14} /> },
+      'Transferred': { color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200', icon: <AlertCircle size={14} /> },
+      'Active': { color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', icon: <CheckCircle size={14} /> },
+      'Inactive': { color: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200', icon: <XCircle size={14} /> },
+      'Suspended': { color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', icon: <AlertCircle size={14} /> },
+    };
+    return badges[status] || badges['Pending'];
+  };
+
+  // Check if plan is expired
+  const isPlanExpired = (deactivationDate) => {
+    if (!deactivationDate) return false;
+    return new Date(deactivationDate) < new Date();
+  };
+
+  // Handle edit plan
+  const handleEditPlan = (plan) => {
+    setEditingPlanId(plan._id);
+    setEditPlanData({
+      planType: plan.planType,
+      billingType: plan.billingType,
+      billingCycle: plan.billingCycle,
+      validityPeriod: plan.validityPeriod,
+      activationDate: plan.activationDate ? new Date(plan.activationDate).toISOString().split('T')[0] : '',
+      deactivationDate: plan.deactivationDate ? new Date(plan.deactivationDate).toISOString().split('T')[0] : '',
+      serviceStatus: plan.serviceStatus,
+      notes: plan.notes || ''
+    });
+  };
+
+  // Handle update plan
+  const handleUpdatePlan = async () => {
+    if (!selectedCustomerId && !customerId) {
+      toast.error('No customer selected');
+      return;
+    }
+
+    setIsAddingPlan(true);
+    try {
+      const targetId = selectedCustomerId || customerId;
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/v1/customer/${targetId}/plan/${editingPlanId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify(editPlanData)
+        }
+      );
+      const data = await response.json();
+      if (data.status) {
+        toast.success('Plan updated successfully');
+        setEditingPlanId(null);
+        setEditPlanData(null);
+        fetchPlanHistory(targetId);
+      } else {
+        toast.error(data.message || 'Failed to update plan');
+      }
+    } catch (error) {
+      toast.error('Failed to update plan');
+    } finally {
+      setIsAddingPlan(false);
+    }
+  };
+
+  // Handle delete plan
+  const handleDeletePlan = async (planId) => {
+    if (!window.confirm('Are you sure you want to delete this plan?')) {
+      return;
+    }
+
+    setIsDeletingPlan(true);
+    try {
+      const targetId = selectedCustomerId || customerId;
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/v1/customer/${targetId}/plan/${planId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      const data = await response.json();
+      if (data.status) {
+        toast.success('Plan deleted successfully');
+        fetchPlanHistory(targetId);
+      } else {
+        toast.error(data.message || 'Failed to delete plan');
+      }
+    } catch (error) {
+      toast.error('Failed to delete plan');
+    } finally {
+      setIsDeletingPlan(false);
+    }
+  };
+
+  // Handle edit plan data change
+  const handleEditPlanChange = (e) => {
+    const { name, value } = e.target;
+    setEditPlanData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   // Reset form to initial state
   const resetForm = () => {
     setFormData(initialFormState);
@@ -88,6 +385,9 @@ export default function CustomerDetailsPanel({
     setSelectedCustomerId(null);
     setIsEditMode(false);
     setIsCreatingNew(false);
+    setQueryHistory([]);
+    setPlanHistory([]);
+    setActiveTab('info');
   };
 
   // Load recent customers on mount
@@ -120,12 +420,12 @@ export default function CustomerDetailsPanel({
         countryCode: state.countryCode
       }));
       setStates(countryStates);
-      setCities([]);
-      setSelectedState(null);
-      setSelectedCity(null);
+      // Don't clear selections here - let change handlers manage that
     } else {
       setStates([]);
       setCities([]);
+      setSelectedState(null);
+      setSelectedCity(null);
     }
   }, [selectedCountry]);
 
@@ -138,9 +438,10 @@ export default function CustomerDetailsPanel({
         name: city.name
       }));
       setCities(stateCities);
-      setSelectedCity(null);
+      // Don't clear city selection here - let change handlers manage that
     } else {
       setCities([]);
+      setSelectedCity(null);
     }
   }, [selectedState, selectedCountry]);
 
@@ -151,7 +452,21 @@ export default function CustomerDetailsPanel({
     }
   }, [customerId, isOpen]);
 
+  // Load query and plan history when tab changes
+  useEffect(() => {
+    console.log('🔄 Tab or customer changed:', { activeTab, selectedCustomerId, customerId });
+    if (selectedCustomerId || customerId) {
+      const targetId = selectedCustomerId || customerId;
+      if (activeTab === 'queries') {
+        fetchQueryHistory(targetId);
+      } else if (activeTab === 'plans') {
+        fetchPlanHistory(targetId);
+      }
+    }
+  }, [activeTab, selectedCustomerId, customerId]);
+
   const fetchCustomerData = async (id) => {
+    // console.log('🔵 === FETCHING CUSTOMER DATA ===', id);
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/customer/${id}`, {
         headers: {
@@ -159,30 +474,32 @@ export default function CustomerDetailsPanel({
         }
       });
       const data = await response.json();
+      // console.log('📦 Customer data received:', data.data);
       if (data.status) {
         const customerData = data.data;
+        // console.log('🏠 Customer address:', customerData.address);
         setFormData({
           customerId: customerData.customerId || '',
           name: customerData.name || '',
           email: customerData.email || '',
           mobile: customerData.mobile || '',
           alternatePhone: customerData.alternatePhone || '',
-          governmentId: customerData.governmentId || {
-            type: '',
-            number: '',
-            issuedDate: '',
-            expiryDate: ''
+          governmentId: {
+            type: customerData.governmentId?.type || '',
+            number: customerData.governmentId?.number || '',
+            issuedDate: customerData.governmentId?.issuedDate ? customerData.governmentId.issuedDate.split('T')[0] : '',
+            expiryDate: customerData.governmentId?.expiryDate ? customerData.governmentId.expiryDate.split('T')[0] : ''
           },
-          address: customerData.address || {
-            street: '',
-            locality: '',
-            city: '',
-            state: '',
-            country: '',
-            countryCode: '',
-            stateCode: '',
-            postalCode: '',
-            landmark: ''
+          address: {
+            street: customerData.address?.street || '',
+            locality: customerData.address?.locality || '',
+            city: customerData.address?.city || '',
+            state: customerData.address?.state || '',
+            country: customerData.address?.country || '',
+            countryCode: customerData.address?.countryCode || '',
+            stateCode: customerData.address?.stateCode || '',
+            postalCode: customerData.address?.postalCode || '',
+            landmark: customerData.address?.landmark || ''
           },
           planType: customerData.planType || '',
           billingType: customerData.billingType || '',
@@ -194,21 +511,96 @@ export default function CustomerDetailsPanel({
         });
 
         // Set selected country, state, city for dropdowns
+        let foundCountry = null;
         if (customerData.address?.countryCode) {
-          const country = countries.find(c => c.isoCode === customerData.address.countryCode);
-          if (country) setSelectedCountry(country);
+          foundCountry = countries.find(c => c.isoCode === customerData.address.countryCode);
+        } else if (customerData.address?.country) {
+          // Fallback: search by country name
+          foundCountry = countries.find(c => c.name.toLowerCase() === customerData.address.country.toLowerCase());
         }
-        if (customerData.address?.stateCode && customerData.address?.countryCode) {
-          const statesList = State.getStatesOfCountry(customerData.address.countryCode);
-          const state = statesList.find(s => s.isoCode === customerData.address.stateCode);
-          if (state) {
-            setSelectedState({
-              value: state.isoCode,
-              label: state.name,
-              name: state.name,
-              isoCode: state.isoCode,
-              countryCode: state.countryCode
-            });
+        
+        if (foundCountry) {
+          setSelectedCountry(foundCountry);
+          
+          // Load states for this country
+          const countryStates = State.getStatesOfCountry(foundCountry.isoCode).map(state => ({
+            value: state.isoCode,
+            label: state.name,
+            name: state.name,
+            isoCode: state.isoCode,
+            countryCode: state.countryCode
+          }));
+          setStates(countryStates);
+          
+          // Update form data with country code if it was missing
+          if (!customerData.address.countryCode) {
+            setFormData(prev => ({
+              ...prev,
+              address: {
+                ...prev.address,
+                countryCode: foundCountry.isoCode
+              }
+            }));
+          }
+        }
+        // Set state dropdown
+        if (foundCountry) {
+          let foundState = null;
+          const countryCode = foundCountry.isoCode;
+          const statesList = State.getStatesOfCountry(countryCode);
+          
+          // console.log('🗺️ Loading state for country:', countryCode);
+          // console.log('📍 Customer state data:', customerData.address?.state, 'Code:', customerData.address?.stateCode);
+          // console.log('📋 Available states:', statesList.map(s => s.name));
+          
+          if (customerData.address?.stateCode) {
+            foundState = statesList.find(s => s.isoCode === customerData.address.stateCode);
+            // console.log('🔍 Found state by code:', foundState?.name);
+          } else if (customerData.address?.state) {
+            // Try exact match first
+            foundState = statesList.find(s => s.name.toLowerCase() === customerData.address.state.toLowerCase());
+            
+            // If not found, try partial match
+            if (!foundState) {
+              foundState = statesList.find(s => 
+                s.name.toLowerCase().includes(customerData.address.state.toLowerCase()) ||
+                customerData.address.state.toLowerCase().includes(s.name.toLowerCase())
+              );
+            }
+            // console.log('🔍 Found state by name:', foundState?.name);
+          }
+          
+          if (foundState) {
+            const stateObj = {
+              value: foundState.isoCode,
+              label: foundState.name,
+              name: foundState.name,
+              isoCode: foundState.isoCode,
+              countryCode: foundState.countryCode
+            };
+            setSelectedState(stateObj);
+            
+            // Load cities for this state
+            const stateCities = City.getCitiesOfState(countryCode, foundState.isoCode).map(city => ({
+              value: city.name,
+              label: city.name,
+              name: city.name
+            }));
+            setCities(stateCities);
+            // console.log('🏙️ Loaded cities:', stateCities.length, 'cities');
+            
+            // Update form data with state code if it was missing
+            if (!customerData.address.stateCode) {
+              setFormData(prev => ({
+                ...prev,
+                address: {
+                  ...prev.address,
+                  stateCode: foundState.isoCode
+                }
+              }));
+            }
+          } else {
+            // console.log('❌ State not found in state list for:', customerData.address?.state);
           }
         }
         if (customerData.address?.city) {
@@ -279,6 +671,8 @@ export default function CustomerDetailsPanel({
   };
 
   const handleSelectCustomer = (customer) => {
+    // console.log('🟢 === SELECTING CUSTOMER ===', customer._id);
+    // console.log('🏠 Customer address data:', customer.address);
     setSelectedCustomerId(customer._id);
     setIsEditMode(false); // Start in view mode
     setIsCreatingNew(false);
@@ -288,20 +682,22 @@ export default function CustomerDetailsPanel({
       email: customer.email || '',
       mobile: customer.mobile || '',
       alternatePhone: customer.alternatePhone || '',
-      governmentId: customer.governmentId || {
-        type: '',
-        number: '',
-        issuedDate: '',
-        expiryDate: ''
+      governmentId: {
+        type: customer.governmentId?.type || '',
+        number: customer.governmentId?.number || '',
+        issuedDate: customer.governmentId?.issuedDate ? customer.governmentId.issuedDate.split('T')[0] : '',
+        expiryDate: customer.governmentId?.expiryDate ? customer.governmentId.expiryDate.split('T')[0] : ''
       },
-      address: customer.address || {
-        street: '',
-        locality: '',
-        city: '',
-        state: '',
-        country: 'India',
-        postalCode: '',
-        landmark: ''
+      address: {
+        street: customer.address?.street || '',
+        locality: customer.address?.locality || '',
+        city: customer.address?.city || '',
+        state: customer.address?.state || '',
+        country: customer.address?.country || '',
+        countryCode: customer.address?.countryCode || '',
+        stateCode: customer.address?.stateCode || '',
+        postalCode: customer.address?.postalCode || '',
+        landmark: customer.address?.landmark || ''
       },
       planType: customer.planType || '',
       billingType: customer.billingType || '',
@@ -311,6 +707,86 @@ export default function CustomerDetailsPanel({
       deactivationDate: customer.deactivationDate ? customer.deactivationDate.split('T')[0] : '',
       serviceStatus: customer.serviceStatus || 'Active'
     });
+
+    // Set selected country, state, city for dropdowns
+    let foundCountry = null;
+    if (customer.address?.countryCode) {
+      foundCountry = countries.find(c => c.isoCode === customer.address.countryCode);
+    } else if (customer.address?.country) {
+      // Fallback: search by country name
+      foundCountry = countries.find(c => c.name.toLowerCase() === customer.address.country.toLowerCase());
+    }
+    
+    if (foundCountry) {
+      setSelectedCountry(foundCountry);
+      
+      // Load states for this country
+      const countryStates = State.getStatesOfCountry(foundCountry.isoCode).map(state => ({
+        value: state.isoCode,
+        label: state.name,
+        name: state.name,
+        isoCode: state.isoCode,
+        countryCode: state.countryCode
+      }));
+      setStates(countryStates);
+    }
+    // Set state dropdown
+    if (foundCountry) {
+      let foundState = null;
+      const countryCode = foundCountry.isoCode;
+      const statesList = State.getStatesOfCountry(countryCode);
+      
+      // console.log('🗺️ Loading state for country:', countryCode);
+      // console.log('📍 Customer state data:', customer.address?.state, 'Code:', customer.address?.stateCode);
+      // console.log('📋 Available states:', statesList.map(s => s.name));
+      
+      if (customer.address?.stateCode) {
+        foundState = statesList.find(s => s.isoCode === customer.address.stateCode);
+        // console.log('🔍 Found state by code:', foundState?.name);
+      } else if (customer.address?.state) {
+        // Try exact match first
+        foundState = statesList.find(s => s.name.toLowerCase() === customer.address.state.toLowerCase());
+        
+        // If not found, try partial match
+        if (!foundState) {
+          foundState = statesList.find(s => 
+            s.name.toLowerCase().includes(customer.address.state.toLowerCase()) ||
+            customer.address.state.toLowerCase().includes(s.name.toLowerCase())
+          );
+        }
+        // console.log('🔍 Found state by name:', foundState?.name);
+      }
+      
+      if (foundState) {
+        const stateObj = {
+          value: foundState.isoCode,
+          label: foundState.name,
+          name: foundState.name,
+          isoCode: foundState.isoCode,
+          countryCode: foundState.countryCode
+        };
+        setSelectedState(stateObj);
+        
+        // Load cities for this state
+        const stateCities = City.getCitiesOfState(countryCode, foundState.isoCode).map(city => ({
+          value: city.name,
+          label: city.name,
+          name: city.name
+        }));
+        setCities(stateCities);
+        // console.log('🏙️ Loaded cities:', stateCities.length, 'cities');
+      } else {
+        // console.log('❌ State not found in state list');
+      }
+    }
+    if (customer.address?.city) {
+      setSelectedCity({
+        value: customer.address.city,
+        label: customer.address.city,
+        name: customer.address.city
+      });
+    }
+
     setIsSearchMode(false);
     setSearchResults([]);
     setSearchQuery('');
@@ -499,7 +975,7 @@ export default function CustomerDetailsPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700">
+    <div className="h-full flex flex-col bg-white dark:bg-gray-950 border-l border-gray-200 dark:border-gray-700">
       <style>{`
         :root {
           --select-bg: white;
@@ -543,6 +1019,16 @@ export default function CustomerDetailsPanel({
               <Edit2 size={18} />
             </button>
           )}
+          {!isSearchMode && petitionId && (selectedCustomerId || customerId) && (
+            <button
+              onClick={() => handleAddQueryToCustomer(selectedCustomerId || customerId)}
+              className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors text-sm font-medium flex items-center gap-1"
+              title="Add current query to this customer"
+            >
+              <Plus size={16} />
+              Add Query
+            </button>
+          )}
           {!isSearchMode && (
             <button
               onClick={() => setIsSearchMode(true)}
@@ -561,6 +1047,51 @@ export default function CustomerDetailsPanel({
         </div>
       </div>
 
+      {/* Tabs (only show when a customer is selected) */}
+      {(selectedCustomerId || customerId) && !isSearchMode && (
+        <div className="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950">
+          <button
+            onClick={() => setActiveTab('info')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'info'
+                ? 'text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <User size={16} />
+              Customer Info
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('queries')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'queries'
+                ? 'text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <History size={16} />
+              Query History
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('plans')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'plans'
+                ? 'text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Package size={16} />
+              Plan History
+            </div>
+          </button>
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {isSearchMode ? (
@@ -572,7 +1103,7 @@ export default function CustomerDetailsPanel({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Search by name, email, phone, or customer ID..."
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white"
               />
               <button
                 onClick={handleSearch}
@@ -611,7 +1142,7 @@ export default function CustomerDetailsPanel({
                         <p className="text-sm text-gray-600 dark:text-gray-400">{customer.mobile}</p>
                       </div>
                       {customer.customerId && (
-                        <span className="px-2 py-1 bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 text-xs rounded">
+                        <span className="px-2 py-1 bg-teal-100 dark:bg-gray-950 text-teal-800 dark:text-teal-200 text-xs rounded">
                           {customer.customerId}
                         </span>
                       )}
@@ -646,7 +1177,7 @@ export default function CustomerDetailsPanel({
                     setItemsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                 >
                   <option value={25}>25</option>
                   <option value={50}>50</option>
@@ -675,7 +1206,7 @@ export default function CustomerDetailsPanel({
                         <p className="text-sm text-gray-600 dark:text-gray-400">{customer.mobile}</p>
                       </div>
                       {customer.customerId && (
-                        <span className="px-2 py-1 bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 text-xs rounded">
+                        <span className="px-2 py-1 bg-teal-100 dark:bg-gray-950 text-teal-800 dark:text-teal-200 text-xs rounded">
                           {customer.customerId}
                         </span>
                       )}
@@ -699,7 +1230,7 @@ export default function CustomerDetailsPanel({
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 flex items-center gap-1"
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 flex items-center gap-1"
                   >
                     <ChevronLeft size={16} />
                     Previous
@@ -710,7 +1241,7 @@ export default function CustomerDetailsPanel({
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalCustomers / itemsPerPage), prev + 1))}
                     disabled={currentPage >= Math.ceil(totalCustomers / itemsPerPage)}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 flex items-center gap-1"
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 flex items-center gap-1"
                   >
                     Next
                     <ChevronRight size={16} />
@@ -719,7 +1250,7 @@ export default function CustomerDetailsPanel({
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === 'info' ? (
           <form className="space-y-6">
             {/* Basic Information */}
             <div className="space-y-4">
@@ -741,7 +1272,7 @@ export default function CustomerDetailsPanel({
                     placeholder="Auto-generated (CUST + 8 digits)"
                     readOnly={selectedCustomerId && !isEditMode}
                     className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm ${
-                      selectedCustomerId && !isEditMode ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : 'bg-white dark:bg-gray-800'
+                      selectedCustomerId && !isEditMode ? 'bg-gray-100 dark:bg-gray-950 cursor-not-allowed' : 'bg-white dark:bg-gray-950'
                     }`}
                   />
                 </div>
@@ -756,7 +1287,7 @@ export default function CustomerDetailsPanel({
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
               </div>
@@ -772,7 +1303,7 @@ export default function CustomerDetailsPanel({
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
                 
@@ -786,7 +1317,7 @@ export default function CustomerDetailsPanel({
                     value={formData.mobile}
                     onChange={handleChange}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
               </div>
@@ -800,7 +1331,7 @@ export default function CustomerDetailsPanel({
                   name="alternatePhone"
                   value={formData.alternatePhone}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                 />
               </div>
             </div>
@@ -821,7 +1352,7 @@ export default function CustomerDetailsPanel({
                     name="governmentId.type"
                     value={formData.governmentId.type}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   >
                     <option value="">Select Type</option>
                     <option value="Driving License">Driving License</option>
@@ -840,7 +1371,7 @@ export default function CustomerDetailsPanel({
                     name="governmentId.number"
                     value={formData.governmentId.number}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
               </div>
@@ -855,7 +1386,7 @@ export default function CustomerDetailsPanel({
                     name="governmentId.issuedDate"
                     value={formData.governmentId.issuedDate}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
                 
@@ -868,7 +1399,7 @@ export default function CustomerDetailsPanel({
                     name="governmentId.expiryDate"
                     value={formData.governmentId.expiryDate}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
               </div>
@@ -891,7 +1422,7 @@ export default function CustomerDetailsPanel({
                   value={formData.address.street}
                   onChange={handleChange}
                   placeholder="House No., Street Name, Building"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                 />
               </div>
 
@@ -972,7 +1503,7 @@ export default function CustomerDetailsPanel({
                       selectedCountry?.isoCode === 'CA' ? 'e.g., K1A 0B1' :
                       'Enter postal code'
                     }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                   {selectedCountry?.isoCode === 'IN' && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -993,7 +1524,7 @@ export default function CustomerDetailsPanel({
                     value={formData.address.locality}
                     onChange={handleChange}
                     placeholder="Neighborhood, Area"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
                 
@@ -1006,7 +1537,7 @@ export default function CustomerDetailsPanel({
                     name="address.landmark"
                     value={formData.address.landmark}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
               </div>
@@ -1030,7 +1561,7 @@ export default function CustomerDetailsPanel({
                     value={formData.planType}
                     onChange={handleChange}
                     placeholder="e.g., Premium, Basic"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
                 
@@ -1042,7 +1573,7 @@ export default function CustomerDetailsPanel({
                     name="billingType"
                     value={formData.billingType}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   >
                     <option value="">Select Type</option>
                     <option value="Prepaid">Prepaid</option>
@@ -1060,7 +1591,7 @@ export default function CustomerDetailsPanel({
                     name="billingCycle"
                     value={formData.billingCycle}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   >
                     <option value="">Select Cycle</option>
                     <option value="Monthly">Monthly</option>
@@ -1080,7 +1611,7 @@ export default function CustomerDetailsPanel({
                     value={formData.validityPeriod}
                     onChange={handleChange}
                     placeholder="e.g., 30 Days, 1 Year"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
               </div>
@@ -1095,7 +1626,7 @@ export default function CustomerDetailsPanel({
                     name="activationDate"
                     value={formData.activationDate}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
                 
@@ -1108,7 +1639,7 @@ export default function CustomerDetailsPanel({
                     name="deactivationDate"
                     value={formData.deactivationDate}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
               </div>
@@ -1121,7 +1652,7 @@ export default function CustomerDetailsPanel({
                   name="serviceStatus"
                   value={formData.serviceStatus}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                 >
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
@@ -1131,7 +1662,489 @@ export default function CustomerDetailsPanel({
               </div>
             </div>
           </form>
-        )}
+        ) : activeTab === 'queries' ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <History size={18} />
+                Query History
+              </h4>
+            </div>
+
+            {isLoadingHistory ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+              </div>
+            ) : queryHistory.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                No queries found for this customer
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {queryHistory.map((query) => {
+                  const statusBadge = getStatusBadge(query.status);
+                  return (
+                    <div
+                      key={query._id}
+                      className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-950 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-gray-900 dark:text-white">
+                              {query.petitionId}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${statusBadge.color}`}>
+                              {statusBadge.icon}
+                              {query.status}
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                            <div><strong>Subject:</strong> {query.subject || 'N/A'}</div>
+                            <div><strong>Category:</strong> {query.category} • {query.subcategory}</div>
+                            {query.description && (
+                              <div className="mt-2 text-xs line-clamp-2">
+                                <strong>Description:</strong> {query.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const pathParts = window.location.pathname.split('/');
+                            const baseUrl = `${window.location.origin}/${pathParts[1]}/${pathParts[2]}/${pathParts[3]}`;
+                            window.open(`${baseUrl}/query/${query.petitionId || query._id}`, '_blank');
+                          }}
+                          className="ml-2 p-2 text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950 rounded-lg transition-colors"
+                          title="View Query"
+                        >
+                          <ExternalLink size={16} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <div>
+                          Created: {format(new Date(query.createdAt), 'dd MMM yyyy, hh:mm a')}
+                        </div>
+                        {query.assignedTo && (
+                          <div>
+                            Assigned: {query.assignedTo.name}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : activeTab === 'plans' ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Package size={18} />
+                Plan History
+              </h4>
+              {(selectedCustomerId || customerId) && !showAddPlanForm && (
+                <button
+                  onClick={() => setShowAddPlanForm(true)}
+                  className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-1"
+                >
+                  <Plus size={16} />
+                  Add New Plan
+                </button>
+              )}
+            </div>
+
+            {/* Add New Plan Form */}
+            {showAddPlanForm && (
+              <div className="p-4 border-2 border-blue-500 rounded-lg bg-white dark:bg-gray-950 space-y-3">
+                <h5 className="font-semibold text-gray-900 dark:text-white">Add New Plan</h5>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Plan Type <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="planType"
+                      value={newPlan.planType}
+                      onChange={handleNewPlanChange}
+                      placeholder="e.g., Basic, Premium"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Billing Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="billingType"
+                      value={newPlan.billingType}
+                      onChange={handleNewPlanChange}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                    >
+                      <option value="">Select...</option>
+                      <option value="Prepaid">Prepaid</option>
+                      <option value="Postpaid">Postpaid</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Billing Cycle <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="billingCycle"
+                      value={newPlan.billingCycle}
+                      onChange={handleNewPlanChange}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                    >
+                      <option value="">Select...</option>
+                      <option value="Monthly">Monthly</option>
+                      <option value="Quarterly">Quarterly</option>
+                      <option value="Half-Yearly">Half-Yearly</option>
+                      <option value="Yearly">Yearly</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Validity Period <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="validityPeriod"
+                      value={newPlan.validityPeriod}
+                      onChange={handleNewPlanChange}
+                      placeholder="e.g., 30 Days, 1 Year"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Activation Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      name="activationDate"
+                      value={newPlan.activationDate}
+                      onChange={handleNewPlanChange}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Deactivation Date
+                    </label>
+                    <input
+                      type="date"
+                      name="deactivationDate"
+                      value={newPlan.deactivationDate}
+                      onChange={handleNewPlanChange}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Service Status
+                    </label>
+                    <select
+                      name="serviceStatus"
+                      value={newPlan.serviceStatus}
+                      onChange={handleNewPlanChange}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                      <option value="Suspended">Suspended</option>
+                      <option value="Expired">Expired</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Notes
+                    </label>
+                    <textarea
+                      name="notes"
+                      value={newPlan.notes}
+                      onChange={handleNewPlanChange}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm resize-none"
+                      placeholder="Optional notes about this plan..."
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAddPlan}
+                    disabled={isAddingPlan}
+                    className="flex-1 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors disabled:opacity-50 text-sm font-medium"
+                  >
+                    {isAddingPlan ? 'Adding...' : 'Add Plan'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddPlanForm(false);
+                      setNewPlan({
+                        planType: '',
+                        billingType: '',
+                        billingCycle: '',
+                        validityPeriod: '',
+                        activationDate: '',
+                        deactivationDate: '',
+                        serviceStatus: 'Active',
+                        notes: ''
+                      });
+                    }}
+                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Plan History List */}
+            {isLoadingHistory ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+              </div>
+            ) : planHistory.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                No plans found for this customer
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {planHistory.map((plan, index) => {
+                  const isExpired = isPlanExpired(plan.deactivationDate);
+                  const isActivePlan = index === 0; // Most recent is on top
+                  const statusBadge = getStatusBadge(plan.serviceStatus);
+                  const isEditing = editingPlanId === plan._id;
+                  
+                  return (
+                    <React.Fragment key={plan._id}>
+                    <div
+                      key={plan._id}
+                      className={`p-4 border-2 rounded-lg transition-shadow bg-white dark:bg-gray-950 ${
+                        isActivePlan && !isExpired
+                          ? 'border-green-500'
+                          : isExpired || plan.serviceStatus === 'Suspended' || plan.serviceStatus === 'Inactive'
+                          ? 'border-red-500'
+                          : 'border-gray-200 dark:border-gray-700'
+                      } hover:shadow-md`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
+                              {plan.planType}
+                            </h5>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${statusBadge.color}`}>
+                              {statusBadge.icon}
+                              {plan.serviceStatus}
+                            </span>
+                            {isActivePlan && !isExpired && (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-600 text-white">
+                                Current Plan
+                              </span>
+                            )}
+                            {isExpired && (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-600 text-white">
+                                Expired
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                            <div>{plan.billingType} • {plan.billingCycle}</div>
+                            <div>Validity: {plan.validityPeriod}</div>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleEditPlan(plan)}
+                            className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 rounded transition-colors"
+                            title="Edit Plan"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePlan(plan._id)}
+                            disabled={isDeletingPlan}
+                            className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 rounded transition-colors disabled:opacity-50"
+                            title="Delete Plan"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400 mb-2">
+                        <div>
+                          <span className="font-medium">Activation:</span> {format(new Date(plan.activationDate), 'dd MMM yyyy')}
+                        </div>
+                        {plan.deactivationDate && (
+                          <div>
+                            <span className="font-medium">Deactivation:</span> {format(new Date(plan.deactivationDate), 'dd MMM yyyy')}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {plan.notes && (
+                        <div className="mt-2 p-2 bg-gray-100 dark:bg-slate-950 rounded text-xs text-gray-700 dark:text-gray-300">
+                          {plan.notes}
+                        </div>
+                      )}
+                      
+                      <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        Added: {format(new Date(plan.addedAt), 'dd MMM yyyy, hh:mm a')}
+                        {plan.addedBy && ` by ${plan.addedBy.name}`}
+                      </div>
+                    </div>
+
+                    {/* Edit Plan Form */}
+                    {isEditing && editPlanData && (
+                      <div className="p-4 border border-blue-500 rounded-lg bg-blue-50 dark:bg-blue-950 space-y-3 mt-2">
+                        <h5 className="font-semibold text-gray-900 dark:text-white">Edit Plan</h5>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Plan Type <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              name="planType"
+                              value={editPlanData.planType}
+                              onChange={handleEditPlanChange}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Billing Type <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              name="billingType"
+                              value={editPlanData.billingType}
+                              onChange={handleEditPlanChange}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                            >
+                              <option value="">Select...</option>
+                              <option value="Prepaid">Prepaid</option>
+                              <option value="Postpaid">Postpaid</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Billing Cycle <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              name="billingCycle"
+                              value={editPlanData.billingCycle}
+                              onChange={handleEditPlanChange}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                            >
+                              <option value="">Select...</option>
+                              <option value="Monthly">Monthly</option>
+                              <option value="Quarterly">Quarterly</option>
+                              <option value="Half-Yearly">Half-Yearly</option>
+                              <option value="Yearly">Yearly</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Validity Period <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              name="validityPeriod"
+                              value={editPlanData.validityPeriod}
+                              onChange={handleEditPlanChange}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Activation Date <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="date"
+                              name="activationDate"
+                              value={editPlanData.activationDate}
+                              onChange={handleEditPlanChange}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Deactivation Date
+                            </label>
+                            <input
+                              type="date"
+                              name="deactivationDate"
+                              value={editPlanData.deactivationDate}
+                              onChange={handleEditPlanChange}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Service Status
+                            </label>
+                            <select
+                              name="serviceStatus"
+                              value={editPlanData.serviceStatus}
+                              onChange={handleEditPlanChange}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                            >
+                              <option value="Active">Active</option>
+                              <option value="Inactive">Inactive</option>
+                              <option value="Suspended">Suspended</option>
+                              <option value="Expired">Expired</option>
+                            </select>
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Notes
+                            </label>
+                            <textarea
+                              name="notes"
+                              value={editPlanData.notes}
+                              onChange={handleEditPlanChange}
+                              rows={2}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm resize-none"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleUpdatePlan}
+                            disabled={isAddingPlan}
+                            className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 text-sm font-medium"
+                          >
+                            {isAddingPlan ? 'Updating...' : 'Update Plan'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPlanId(null);
+                              setEditPlanData(null);
+                            }}
+                            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {/* Footer */}

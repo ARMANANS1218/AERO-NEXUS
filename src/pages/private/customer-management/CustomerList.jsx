@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CircularProgress, Avatar, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tooltip } from '@mui/material';
-import { Search, Eye, Phone, Mail, MapPin, Calendar, UserCog, Edit, User } from 'lucide-react';
+import { Search, Eye, Phone, Mail, MapPin, Calendar, UserCog, Edit, User, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 
 const CustomerList = () => {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -15,6 +17,8 @@ const CustomerList = () => {
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [isSearchMode, setIsSearchMode] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState(null);
 
   const API_URL = import.meta.env.VITE_API_URL;
 
@@ -106,7 +110,49 @@ const CustomerList = () => {
   const totalPages = Math.ceil(totalCustomers / itemsPerPage);
 
   const handleViewCustomer = (customer) => {
-    setViewDialog({ open: true, customer });
+    // Navigate to full page view
+    navigate(`${customer._id}`);
+  };
+
+  const handleRowClick = (customer) => {
+    // Navigate to full page when row is clicked
+    navigate(`${customer._id}`);
+  };
+
+  const handleDeleteCustomer = (customerId, e) => {
+    e.stopPropagation(); // Prevent row click
+    setCustomerToDelete(customerId);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteCustomer = async () => {
+    if (!customerToDelete) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.delete(
+        `${API_URL}/api/v1/customer/${customerToDelete}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.status) {
+        toast.success('Customer deleted successfully');
+        // Refresh the list
+        if (isSearchMode) {
+          searchCustomers(searchQuery);
+        } else {
+          fetchMyCustomers();
+        }
+      } else {
+        toast.error(response.data.message || 'Failed to delete customer');
+      }
+    } catch (error) {
+      console.error('Failed to delete customer:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete customer');
+    } finally {
+      setShowDeleteModal(false);
+      setCustomerToDelete(null);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -174,10 +220,10 @@ const CustomerList = () => {
   };
 
   return (
-    <div className="h-screen w-full bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+    <div className="h-screen w-full bg-gray-50 dark:bg-gray-950 flex flex-col overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 shadow-md p-4">
+        <div className="bg-white dark:bg-gray-950 shadow-md p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-gradient-to-r from-teal-600 to-cyan-700 rounded-lg">
@@ -185,7 +231,7 @@ const CustomerList = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">All Customers</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-gray-500 dark:text-white">
                   {isSearchMode ? `${totalCustomers} customer${totalCustomers !== 1 ? 's' : ''} found` : `${totalCustomers} total customers in organization`}
                 </p>
               </div>
@@ -194,7 +240,7 @@ const CustomerList = () => {
             {/* Items per page selector */}
             {!isSearchMode && (
               <div className="flex items-center gap-2 mb-3">
-                <label className="text-sm text-gray-600 dark:text-gray-400">Show:</label>
+                <label className="text-sm text-gray-600 dark:text-white">Show:</label>
                 <select
                   value={itemsPerPage}
                   onChange={(e) => {
@@ -245,7 +291,7 @@ const CustomerList = () => {
                 <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   {isSearchMode ? 'No Customers Found' : 'No Customers Yet'}
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400">
+                <p className="text-gray-500 dark:text-white">
                   {isSearchMode 
                     ? `No customers match your search: "${searchQuery}"` 
                     : 'No customers in your organization yet'}
@@ -255,26 +301,27 @@ const CustomerList = () => {
           ) : customers.length > 0 ? (
             <>
               {/* Customer List Table */}
-              <div className="bg-white dark:bg-gray-800">
+              <div className="bg-white dark:bg-gray-950">
                 <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10">
+                  <thead className="bg-gray-50 dark:bg-slate-900 sticky top-0 z-10">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer ID</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Mobile</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Location</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Joined</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-white uppercase tracking-wider">Customer</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-white uppercase tracking-wider">Customer ID</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-white uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-white uppercase tracking-wider">Mobile</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-white uppercase tracking-wider">Location</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-white uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-white uppercase tracking-wider">Created By</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-white uppercase tracking-wider">Joined</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-white uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {customers.map((customer) => (
                       <tr
                         key={customer._id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        onClick={() => handleRowClick(customer)}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-3">
@@ -301,20 +348,20 @@ const CustomerList = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-white">
                             <Mail size={14} className="flex-shrink-0" />
                             <span className="truncate max-w-xs">{customer.email || 'N/A'}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-white">
                             <Phone size={14} className="flex-shrink-0" />
                             <span>{customer.mobile || 'N/A'}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {customer.address?.city ? (
-                            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-white">
                               <MapPin size={14} className="flex-shrink-0" />
                               <span className="truncate max-w-xs">
                                 {customer.address.city}, {customer.address.country}
@@ -345,7 +392,7 @@ const CustomerList = () => {
                                 <p className="text-sm font-medium text-gray-900 dark:text-white">
                                   {customer.createdBy.name}
                                 </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                <p className="text-xs text-gray-500 dark:text-white">
                                   {customer.createdBy.role}
                                 </p>
                               </div>
@@ -355,29 +402,44 @@ const CustomerList = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-white">
                             <Calendar size={14} className="flex-shrink-0" />
                             <span>{formatDate(customer.createdAt)}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-1">
-                            <Tooltip title="Edit Customer">
+                            <Tooltip title="View Details">
                               <IconButton
-                                onClick={() => setEditDialog({ open: true, customer })}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewCustomer(customer);
+                                }}
                                 size="small"
                                 className="text-teal-600 hover:bg-teal-50"
+                              >
+                                <Eye size={18} />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Edit Customer">
+                              <IconButton
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewCustomer(customer);
+                                }}
+                                size="small"
+                                className="text-cyan-600 hover:bg-cyan-50"
                               >
                                 <Edit size={18} />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title="View Details">
+                            <Tooltip title="Delete Customer">
                               <IconButton
-                                onClick={() => handleViewCustomer(customer)}
+                                onClick={(e) => handleDeleteCustomer(customer._id, e)}
                                 size="small"
-                                className="text-cyan-600 hover:bg-cyan-50"
+                                className="text-red-600 hover:bg-red-50"
                               >
-                                <Eye size={18} />
+                                <Trash2 size={18} />
                               </IconButton>
                             </Tooltip>
                           </div>
@@ -390,9 +452,9 @@ const CustomerList = () => {
 
               {/* Pagination */}
               {!isSearchMode && totalPages > 1 && (
-                <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+                <div className="bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-700 p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-gray-600 dark:text-white">
                       Showing {((page - 1) * itemsPerPage) + 1} to {Math.min(page * itemsPerPage, totalCustomers)} of {totalCustomers} customers
                     </p>
                     <div className="flex gap-2">
@@ -431,7 +493,7 @@ const CustomerList = () => {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle className="bg-gradient-to-r from-teal-700 to-cyan-800 text-white">
+        <DialogTitle className="bg-gray-950 text-white">
           <div className="flex items-center gap-3">
             <UserCog size={24} />
             <span>Customer Details</span>
@@ -445,23 +507,23 @@ const CustomerList = () => {
                 <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Basic Information</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Customer ID</label>
+                    <label className="text-gray-500 dark:text-white">Customer ID</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.customerId || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Name</label>
+                    <label className="text-gray-500 dark:text-white">Name</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.name || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Email</label>
+                    <label className="text-gray-500 dark:text-white">Email</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.email || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Mobile</label>
+                    <label className="text-gray-500 dark:text-white">Mobile</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.mobile || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Alternate Phone</label>
+                    <label className="text-gray-500 dark:text-white">Alternate Phone</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.alternatePhone || 'N/A'}</p>
                   </div>
                 </div>
@@ -472,31 +534,31 @@ const CustomerList = () => {
                 <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Address</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Street</label>
+                    <label className="text-gray-500 dark:text-white">Street</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.street || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Locality</label>
+                    <label className="text-gray-500 dark:text-white">Locality</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.locality || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">City</label>
+                    <label className="text-gray-500 dark:text-white">City</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.city || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">State</label>
+                    <label className="text-gray-500 dark:text-white">State</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.state || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Country</label>
+                    <label className="text-gray-500 dark:text-white">Country</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.country || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Postal Code</label>
+                    <label className="text-gray-500 dark:text-white">Postal Code</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.postalCode || 'N/A'}</p>
                   </div>
                   <div className="col-span-2">
-                    <label className="text-gray-500 dark:text-gray-400">Landmark</label>
+                    <label className="text-gray-500 dark:text-white">Landmark</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.address?.landmark || 'N/A'}</p>
                   </div>
                 </div>
@@ -507,19 +569,19 @@ const CustomerList = () => {
                 <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Government ID</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Type</label>
+                    <label className="text-gray-500 dark:text-white">Type</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.governmentId?.type || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Number</label>
+                    <label className="text-gray-500 dark:text-white">Number</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.governmentId?.number || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Issued Date</label>
+                    <label className="text-gray-500 dark:text-white">Issued Date</label>
                     <p className="font-medium text-gray-900 dark:text-white">{formatDate(viewDialog.customer.governmentId?.issuedDate) || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Expiry Date</label>
+                    <label className="text-gray-500 dark:text-white">Expiry Date</label>
                     <p className="font-medium text-gray-900 dark:text-white">{formatDate(viewDialog.customer.governmentId?.expiryDate) || 'N/A'}</p>
                   </div>
                 </div>
@@ -530,31 +592,31 @@ const CustomerList = () => {
                 <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Service Information</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Plan Type</label>
+                    <label className="text-gray-500 dark:text-white">Plan Type</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.planType || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Billing Type</label>
+                    <label className="text-gray-500 dark:text-white">Billing Type</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.billingType || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Billing Cycle</label>
+                    <label className="text-gray-500 dark:text-white">Billing Cycle</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.billingCycle || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Validity Period</label>
+                    <label className="text-gray-500 dark:text-white">Validity Period</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.validityPeriod || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Service Status</label>
+                    <label className="text-gray-500 dark:text-white">Service Status</label>
                     <p className="font-medium text-gray-900 dark:text-white">{viewDialog.customer.serviceStatus || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Activation Date</label>
+                    <label className="text-gray-500 dark:text-white">Activation Date</label>
                     <p className="font-medium text-gray-900 dark:text-white">{formatDate(viewDialog.customer.activationDate) || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-gray-500 dark:text-gray-400">Deactivation Date</label>
+                    <label className="text-gray-500 dark:text-white">Deactivation Date</label>
                     <p className="font-medium text-gray-900 dark:text-white">{formatDate(viewDialog.customer.deactivationDate) || 'N/A'}</p>
                   </div>
                 </div>
@@ -569,7 +631,7 @@ const CustomerList = () => {
                     <span className="mx-2">•</span>
                     <span className="text-teal-600 dark:text-teal-400">{viewDialog.customer.createdBy.role}</span>
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-white mt-1">
                     {viewDialog.customer.createdBy.email}
                   </p>
                 </div>
@@ -905,7 +967,7 @@ const CustomerList = () => {
               {/* Creator Info (Read-only) */}
               {editDialog.customer.createdBy && (
                 <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-gray-600 dark:text-white">
                     Created by: <span className="font-medium text-gray-900 dark:text-white">
                       {editDialog.customer.createdBy.name} ({editDialog.customer.createdBy.role})
                     </span>
@@ -932,6 +994,35 @@ const CustomerList = () => {
           </button>
         </DialogActions>
       </Dialog>
+
+      {/* Delete Customer Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-950 rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Delete Customer</h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Are you sure you want to delete this customer? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setCustomerToDelete(null);
+                }}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteCustomer}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

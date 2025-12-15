@@ -11,6 +11,7 @@ import { useGetProfileQuery } from '../../../features/auth/authApi';
 import { useCreateCallMutation } from '../../../features/room/roomApi';
 import { useGetFaqsQuery, useCreateFaqMutation, useUpdateFaqMutation, useDeleteFaqMutation } from '../../../features/faq/faqApi';
 import { useUploadScreenshotMutation } from '../../../features/screenshot/screenshotApi';
+import { useFindCustomerByQueryQuery } from '../../../features/customer/customerApi';
 import { toast } from 'react-toastify';
 import { format, formatDistanceToNow } from 'date-fns';
 import { io } from 'socket.io-client';
@@ -109,6 +110,11 @@ export default function QueryChat() {
   const [acceptQuery, { isLoading: isAccepting }] = useAcceptQueryMutation();
   const [createCall] = useCreateCallMutation();
   const [uploadScreenshot] = useUploadScreenshotMutation();
+  
+  // Auto-fetch customer data when panel is opened
+  const { data: customerByQueryData } = useFindCustomerByQueryQuery(petitionId, {
+    skip: !showCustomerPanel || !petitionId
+  });
 
   const currentUser = profileData?.data;
   const query = queryData?.data;
@@ -173,6 +179,15 @@ export default function QueryChat() {
       toast.error('You are not authorized to message in this chat', { autoClose: 4000 });
     }
   }, [isNotAuthorized, isWaitingForAssignment, petitionId]);
+
+  // Auto-populate customer data when found
+  useEffect(() => {
+    if (customerByQueryData?.data && showCustomerPanel) {
+      setCustomerPanelData({
+        customerId: customerByQueryData.data._id
+      });
+    }
+  }, [customerByQueryData, showCustomerPanel]);
 
   // Professional emojis for business communication
   const professionalEmojis = [
@@ -2141,7 +2156,7 @@ export default function QueryChat() {
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button
                                 onClick={() => handleCopyAnswer(reply.text)}
-                                className="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                className="p-1.5 bg-gray-100 dark:bg-gray-950 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
                                 title="Copy"
                               >
                                 <Copy size={14} className="text-gray-700 dark:text-gray-300" />
@@ -2274,7 +2289,7 @@ export default function QueryChat() {
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button
                                 onClick={() => handleCopyAnswer(faq.answer)}
-                                className="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                                className="p-1.5 bg-gray-100 dark:bg-gray-950 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
                                 title="Copy"
                               >
                                 <Copy size={14} className="text-gray-700 dark:text-gray-300" />
@@ -2314,6 +2329,7 @@ export default function QueryChat() {
             isOpen={showCustomerPanel}
             onClose={() => setShowCustomerPanel(false)}
             customerId={customerPanelData?.customerId}
+            petitionId={petitionId} // Pass current query's petitionId
             queryCustomerInfo={{
               name: query?.customerName,
               email: query?.customerEmail,

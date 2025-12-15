@@ -48,6 +48,11 @@ export const customerApi = createApi({
         body: credentials,
       }),
     }),
+    
+    // Find customer by query ID
+    findCustomerByQuery: builder.query({
+      query: (queryId) => `/find-by-query/${queryId}`,
+    }),
   }),
 });
 
@@ -56,4 +61,5 @@ export const {
   useUpdateCustomerProfileMutation,
   useRegisterCustomerMutation,
   useLoginCustomerMutation,
+  useFindCustomerByQueryQuery,
 } = customerApi;
