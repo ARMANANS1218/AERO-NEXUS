@@ -1257,6 +1257,19 @@ export default function QueryChat() {
                     </button>
                   )}
                   
+                  {/* Escalate Query Button */}
+                  {isAgent && query?.status !== 'Resolved' && query?.status !== 'Expired' && !hasPendingTransfer && (
+                    <button
+                      onClick={() => setShowTransferDialog(true)}
+                      className="flex items-center gap-2 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-sm transition-all font-medium shadow-md bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm"
+                      title="Escalate Query"
+                    >
+                      <RefreshCw size={18} />
+                      <span className="hidden sm:inline">Escalate Query</span>
+                      <span className="sm:hidden">Escalate</span>
+                    </button>
+                  )}
+                  
                   {/* Escalation dropdown toggle */}
                   {isAgent && (
                     <button
@@ -1411,8 +1424,8 @@ export default function QueryChat() {
                         </button>
                       )}
                       
-                      {/* Set Weightage */}
-                      {isQA && (
+                      {/* Set Weightage - Only for QA and TL */}
+                      {(isQA || isTL) && (
                         <button
                           onClick={() => {
                             setShowActions(false);
