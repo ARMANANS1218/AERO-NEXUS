@@ -28,7 +28,7 @@ import { toast } from "react-toastify";
 import { IMG_PROFILE_URL } from "../../config/api";
 import { useNotificationSoundContext } from "../../context/NotificationSoundContext";
 
-const drawerWidth = 200;
+const drawerWidth = 260;
 
 const AppBar = styled(MuiAppBar, {
   shouldForwardProp: (prop) => prop !== "open",

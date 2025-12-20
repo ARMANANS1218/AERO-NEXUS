@@ -8,20 +8,45 @@ const QAActivity = () => {
   const { data: employeesData, isLoading } = useGetAllEmployeesQuery();
   const [filterDate, setFilterDate] = useState('today');
 
-  const qaMembers = employeesData?.data?.filter(emp => ['QA', 'TL'].includes(emp.role)) || [];
+  // Filter to show only QA members (not TL)
+  const qaMembers = employeesData?.data?.filter(emp => emp.role === 'QA') || [];
 
-  // Mock activity data (can be replaced with real API data)
-  const qaWithActivity = qaMembers.map(qa => ({
-    ...qa,
-    activity: {
-      loginTime: qa.login_time ? new Date(qa.login_time) : new Date(),
-      logoutTime: qa.is_active ? null : new Date(Date.now() - Math.random() * 3600000),
-      totalBreaks: Math.floor(Math.random() * 5),
-      breakDuration: Math.floor(Math.random() * 60) + 10, // minutes
-      activeTime: Math.floor(Math.random() * 400) + 60, // minutes
-      idleTime: Math.floor(Math.random() * 60), // minutes
+  // Calculate real activity data from actual login/logout times and break logs
+  const qaWithActivity = qaMembers.map(qa => {
+    const loginTime = qa.login_time ? new Date(qa.login_time) : null;
+    const logoutTime = qa.logout_time ? new Date(qa.logout_time) : null;
+    const breakLogs = qa.breakLogs || [];
+    
+    // Calculate total break duration
+    let totalBreakMinutes = 0;
+    breakLogs.forEach(log => {
+      if (log.start && log.end) {
+        const breakStart = new Date(log.start);
+        const breakEnd = new Date(log.end);
+        totalBreakMinutes += Math.floor((breakEnd - breakStart) / 60000);
+      }
+    });
+    
+    // Calculate active time (login to logout minus breaks)
+    let activeMinutes = 0;
+    if (loginTime) {
+      const endTime = logoutTime || new Date(); // Use current time if still active
+      const totalMinutes = Math.floor((endTime - loginTime) / 60000);
+      activeMinutes = Math.max(0, totalMinutes - totalBreakMinutes);
     }
-  }));
+    
+    return {
+      ...qa,
+      activity: {
+        loginTime: loginTime,
+        logoutTime: logoutTime,
+        totalBreaks: breakLogs.length,
+        breakDuration: totalBreakMinutes,
+        activeTime: activeMinutes,
+        idleTime: 0, // Can be calculated based on workStatus changes if tracked
+      }
+    };
+  });
 
   const formatTime = (date) => {
     if (!date) return 'N/A';
@@ -188,15 +213,19 @@ const QAActivity = () => {
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      qa.is_active 
-                        ? qa.workStatus === 'break'
-                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                          : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400'
+                      qa.activity.logoutTime
+                        ? 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400'
+                        : qa.is_active 
+                          ? qa.workStatus === 'break'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                            : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400'
                     }`}>
-                      {qa.is_active 
-                        ? qa.workStatus === 'break' ? 'On Break' : 'Active'
-                        : 'Offline'
+                      {qa.activity.logoutTime
+                        ? 'Offline'
+                        : qa.is_active 
+                          ? qa.workStatus === 'break' ? 'On Break' : 'Active'
+                          : 'Offline'
                       }
                     </span>
                   </td>
