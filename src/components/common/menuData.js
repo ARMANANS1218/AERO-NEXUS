@@ -17,7 +17,12 @@ import {
     Headphones,
     UserCheck,
     Settings,
-    UserCog
+    UserCog,
+    Clock,
+    Calendar,
+    ClipboardCheck,
+    CalendarDays,
+    FileCheck
 } from "lucide-react";
 
 export const menuData = {
@@ -45,9 +50,6 @@ export const menuData = {
                 ]
             },
             {
-                name: "Customers", icon: UserCog, route: "/admin/customers",
-            },
-            {
                 name: "Screenshots", icon: Camera, route: "/admin/screenshots",
             },
             {
@@ -64,6 +66,19 @@ export const menuData = {
             },
             {
                 name: "Training Material", icon: BookOpen, route: "/admin/training-material",
+            },
+            {
+                name: "Customers", icon: UserCog, route: "/admin/customers",
+            },
+            {
+                name: "Attendance", icon: Calendar,
+                subMenu: [
+                    {name: "Dashboard", icon: LayoutDashboard, route: "/admin/attendance-dashboard"},
+                    { name: "Shift Management", icon: Clock, route: "/admin/shift-management" },
+                    { name: "Manage Attendance", icon: ClipboardCheck, route: "/admin/attendance-management" },
+                    { name: "Holiday Management", icon: CalendarDays, route: "/admin/holiday-management" },
+                    { name: "Leave Management", icon: FileCheck, route: "/admin/leave-management" },
+                ]
             },
 
             {
@@ -83,6 +98,14 @@ export const menuData = {
                         nestedSubMenu: [
                             { name: "Performance", icon: TrendingUp, route: "/admin/reports/qa-performance" },
                             { name: "Activity", icon: Activity, route: "/admin/reports/qa-activity" },
+                        ],
+                    },
+                    {
+                        name: "TL",
+                        icon: Users,
+                        nestedSubMenu: [
+                            { name: "Performance", icon: TrendingUp, route: "/admin/reports/tl-performance" },
+                            { name: "Activity", icon: Activity, route: "/admin/reports/tl-activity" },
                         ],
                     },
                 ]
@@ -110,10 +133,18 @@ export const menuData = {
             //     name: "Calls", icon: Phone, route: "/agent/calls",
             // },
             {
+                name: "Screenshots", icon: Camera, route: "/agent/screenshots",
+            },
+            {
                 name: "Customers", icon: UserCog, route: "/agent/customers",
             },
             {
-                name: "Screenshots", icon: Camera, route: "/agent/screenshots",
+                name: "Attendance", icon: Calendar,
+                subMenu: [
+                    { name: "Mark Attendance", icon: Clock, route: "/agent/mark-attendance" },
+                    { name: "My Attendance", icon: ClipboardCheck, route: "/agent/my-attendance" },
+                    { name: "Apply Leave", icon: FileText, route: "/agent/leave-apply" },
+                ]
             },
         ]
     }],
@@ -140,13 +171,21 @@ export const menuData = {
             //     name: "Calls", icon: Phone, route: "/qa/calls",
             // },
             {
-                name: "Customers", icon: UserCog, route: "/qa/customers",
-            },
-            {
                 name: "Screenshots", icon: Camera, route: "/qa/screenshots",
             },
             {
+                name: "Customers", icon: UserCog, route: "/qa/customers",
+            },
+            {
                 name: "Training Material", icon: BookOpen, route: "/qa/training-material",
+            },
+            {
+                name: "Attendance", icon: Calendar,
+                subMenu: [
+                    { name: "Mark Attendance", icon: Clock, route: "/qa/mark-attendance" },
+                    { name: "My Attendance", icon: ClipboardCheck, route: "/qa/my-attendance" },
+                    { name: "Apply Leave", icon: FileText, route: "/qa/leave-apply" },
+                ]
             },
             // {
             //     name: "Team", icon: UsersRound, route: "/qa/team",
@@ -162,9 +201,42 @@ export const menuData = {
             { name: "Weightage", icon: TrendingUp, route: "/tl/ratings" },
             { name: "Tickets", icon: Inbox, route: "/tl/ticketing/my-inbox" },
             // { name: "Calls", icon: Phone, route: "/tl/calls" },
-            { name: "Customers", icon: UserCog, route: "/tl/customers" },
             { name: "Screenshots", icon: Camera, route: "/tl/screenshots" },
+            { name: "Customers", icon: UserCog, route: "/tl/customers" },
             { name: "Training Material", icon: BookOpen, route: "/tl/training-material" },
+            {
+                name: "Attendance", icon: Calendar,
+                subMenu: [
+                    { name: "Mark Attendance", icon: Clock, route: "/tl/mark-attendance" },
+                    { name: "My Attendance", icon: ClipboardCheck, route: "/tl/my-attendance" },
+                    { name: "Shift Management", icon: Clock, route: "/tl/shift-management" },
+                    { name: "Manage Attendance", icon: ClipboardCheck, route: "/tl/attendance-management" },
+                    { name: "Holiday Management", icon: CalendarDays, route: "/tl/holiday-management" },
+                    { name: "Leave Management", icon: FileCheck, route: "/tl/leave-management" },
+                    { name: "Apply Leave", icon: FileText, route: "/tl/leave-apply" },
+                ]
+            },
+            {
+                 name: "Reports", icon: BarChart3,
+                subMenu: [
+                    {
+                        name: "Agents",
+                        icon: Headphones,
+                        nestedSubMenu: [
+                            { name: "Performance", icon: TrendingUp, route: "/tl/reports/agents-performance" },
+                            { name: "Activity", icon: Activity, route: "/tl/reports/agent-activity" },
+                        ],
+                    },
+                    // {
+                    //     name: "QA",
+                    //     icon: UserCheck,
+                    //     nestedSubMenu: [
+                    //         { name: "Performance", icon: TrendingUp, route: "/tl/reports/qa-performance" },
+                    //         { name: "Activity", icon: Activity, route: "/tl/reports/qa-activity" },
+                    //     ],
+                    // },
+                ]
+            }
         ]
     }],
     Customer: [

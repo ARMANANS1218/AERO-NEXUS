@@ -29,11 +29,20 @@ const SuperAdminLocationSettings = lazy(() => import("../pages/superadmin/SuperA
 const FaqManagement = lazy(() => import("../pages/private/admin/FAQManagement"));
 const TrainingMaterialManagement = lazy(() => import("../pages/private/training-material/TrainingMaterialManagement"));
 const TrainingMaterialView = lazy(() => import("../pages/private/training-material/TrainingMaterialView"));
+const AttendanceMark = lazy(() => import("../components/common/attendance/AttendanceMark"));
+const MyAttendance = lazy(() => import("../components/common/attendance/MyAttendance"));
+const ShiftManagement = lazy(() => import("../components/common/attendance/ShiftManagement"));
+const AttendanceManagement = lazy(() => import("../components/common/attendance/AttendanceManagement"));
+const HolidayManagement = lazy(() => import("../components/common/attendance/HolidayManagement"));
+const LeaveApply = lazy(() => import("../components/common/attendance/LeaveApply"));
+const LeaveManagement = lazy(() => import("../components/common/attendance/LeaveManagement"));
 const IpConfiguration = lazy(() => import("../pages/admin/IpConfiguration"));
 const OrganizationIpConfig = lazy(() => import("../pages/admin/OrganizationIpConfig"));
 const AgentsPerformance = lazy(() => import("../pages/private/admin/reports/AgentsPerformance"));
 const AgentActivity = lazy(() => import("../pages/private/admin/reports/AgentActivity"));
 const QAActivity = lazy(() => import("../pages/private/admin/reports/QAActivity"));
+const TLActivity = lazy(() => import("../pages/private/admin/reports/TLActivity"));
+const TLPerformanceDetail = lazy(() => import("../pages/private/admin/reports/TLPerformanceDetail"));
 const AgentDashboard = lazy(() => import("../pages/private/agent/Dashboard"));
 const QaDashboard = lazy(() => import("../pages/private/qa/QaDashboard"));
 const AgentRatings = lazy(() => import("../pages/qa/AgentRatings"));
@@ -45,6 +54,10 @@ const TlEmailTicketsPage = lazy(() => import("../pages/private/tl/EmailTicketsPa
 const CallScreenshotGallery = lazy(() => import("../pages/private/agent/CallScreenshotGallery"));
 const AgentPerformanceDetail = lazy(() => import("../pages/private/admin/reports/AgentPerformanceDetail"));
 const QAPerformanceDetail = lazy(() => import("../pages/private/admin/reports/QAPerformanceDetail"));
+const TLAgentPerformanceDetail = lazy(() => import("../pages/private/tl/reports/AgentPerformanceDetail"));
+const TLAgentActivity = lazy(() => import("../pages/private/tl/reports/AgentActivity"));
+const TLQAPerformanceDetail = lazy(() => import("../pages/private/tl/reports/QAPerformanceDetail"));
+const TLQAActivity = lazy(() => import("../pages/private/tl/reports/QAActivity"));
 const AgentProfile = lazy(() => import("../pages/private/agent/Profile"));
 const QAProfile = lazy(() => import("../pages/private/qa/Profile"));
 const AdminProfile = lazy(() => import("../pages/private/admin/Profile"));
@@ -69,6 +82,7 @@ const AllEmailView = lazy(() => import("../pages/private/ticketing/AllEmailView"
 const TeamInboxEmailView = lazy(() => import("../pages/private/ticketing/TeamInboxEmailView"));
 const ViewEmailView = lazy(() => import("../pages/private/ticketing/ViewEmailView"));
 const EmailTicketDetail = lazy(() => import("../pages/private/ticketing/EmailTicketDetail"));
+// Customer Management
 const CustomerList = lazy(() => import("../pages/private/customer-management/CustomerList"));
 const CustomerDetails = lazy(() => import("../pages/private/customer-management/CustomerDetails"));
 // ✅ Lazy load routers
@@ -83,8 +97,6 @@ const adminChildren = [
   { path: "create-employee", element: <CreateEmployee /> },
   { path: "edit-employee/:id", element: <EditEmployee /> },
   { path: "employees", element: <EmployeeList /> },
-  { path: "customers", element: <CustomerList /> },
-  { path: "customers/:customerId", element: <CustomerDetails /> },
   { path: "email-config", element: <AdminEmailConfig /> },
   { path: "location-access", element: <LocationAccess /> },
   { path: "location-settings", element: <LocationSettings /> },
@@ -97,7 +109,16 @@ const adminChildren = [
   { path: "reports/agent-activity", element: <AgentActivity /> },
   { path: "reports/qa-performance", element: <QAPerformanceDetail /> },
   { path: "reports/qa-activity", element: <QAActivity /> },
+  { path: "reports/tl-performance", element: <TLPerformanceDetail /> },
+  { path: "reports/tl-activity", element: <TLActivity /> },
   { path: "profile", element: <AdminProfile /> },
+  { path: "customers", element: <CustomerList /> },
+  { path: "customers/:customerId", element: <CustomerDetails /> },
+  {path: "dasbboard", element: <AdminDashboard />},
+  { path: "shift-management", element: <ShiftManagement /> },
+  { path: "attendance-management", element: <AttendanceManagement /> },
+  { path: "holiday-management", element: <HolidayManagement /> },
+  { path: "leave-management", element: <LeaveManagement /> },
   {
     path: "ticketing",
     element: <InboxLayout />,
@@ -118,11 +139,14 @@ const qaChildren = [
   { path: "query/:petitionId", element: <QueryChat /> },
   { path: "ratings", element: <AgentRatings /> },
   { path: "calls", element: <Calls /> },
-  { path: "customers", element: <CustomerList /> },
-  { path: "customers/:customerId", element: <CustomerDetails /> },
   { path: "screenshots", element: <CallScreenshotGallery /> },
   { path: "training-material", element: <TrainingMaterialView /> },
   { path: "profile", element: <QAProfile /> },
+  { path: "customers", element: <CustomerList /> },
+  { path: "customers/:customerId", element: <CustomerDetails /> },
+  { path: "mark-attendance", element: <AttendanceMark /> },
+  { path: "my-attendance", element: <MyAttendance /> },
+  { path: "leave-apply", element: <LeaveApply /> },
   {
     path: "ticketing",
     element: <InboxLayout />,
@@ -145,11 +169,22 @@ const tlChildren = [
   { path: "query/:petitionId", element: <QueryChat /> },
   { path: "ratings", element: <AgentRatings /> },
   { path: "calls", element: <Calls /> },
-  { path: "customers", element: <CustomerList /> },
-  { path: "customers/:customerId", element: <CustomerDetails /> },
   { path: "screenshots", element: <CallScreenshotGallery /> },
   { path: "training-material", element: <TrainingMaterialView /> },
   { path: "profile", element: <QAProfile /> },
+  { path: "customers", element: <CustomerList /> },
+  { path: "customers/:customerId", element: <CustomerDetails /> },
+  { path: "reports/agents-performance", element: <TLAgentPerformanceDetail /> },
+  { path: "reports/agent-activity", element: <TLAgentActivity /> },
+  { path: "mark-attendance", element: <AttendanceMark /> },
+  { path: "my-attendance", element: <MyAttendance /> },
+  { path: "shift-management", element: <ShiftManagement /> },
+  { path: "attendance-management", element: <AttendanceManagement /> },
+  { path: "holiday-management", element: <HolidayManagement /> },
+  { path: "leave-management", element: <LeaveManagement /> },
+  { path: "leave-apply", element: <LeaveApply /> },
+  { path: "reports/qa-performance", element: <TLQAPerformanceDetail /> },
+  { path: "reports/qa-activity", element: <TLQAActivity /> },
   {
     path: "ticketing",
     element: <InboxLayout />,
@@ -165,14 +200,17 @@ const tlChildren = [
 ];
 const agentChildren = [
   { path: "", index: true, element: <AgentDashboard /> },
-  { path: "chat", element: <FullPageChat /> }, 
+  { path: "chat", element: <FullPageChat /> },
   { path: "queries", element: <QueryManagement /> },
   { path: "query/:petitionId", element: <QueryChat /> },
   { path: "calls", element: <Calls /> },
-  { path: "customers", element: <CustomerList /> },
-  { path: "customers/:customerId", element: <CustomerDetails /> },
+  { path: "mark-attendance", element: <AttendanceMark /> },
+  { path: "my-attendance", element: <MyAttendance /> },
+  { path: "leave-apply", element: <LeaveApply /> },
   { path: "screenshots", element: <CallScreenshotGallery /> },
   { path: "profile", element: <AgentProfile /> },
+  { path: "customers", element: <CustomerList /> },
+  { path: "customers/:customerId", element: <CustomerDetails /> },
   {
     path: "ticketing",
     element: <InboxLayout />,
@@ -232,33 +270,33 @@ const routers = createBrowserRouter([
     ),
     errorElement: <RouteErrorBoundary />,
     children: [
-      { 
-        path: "dashboard", 
+      {
+        path: "dashboard",
         element: <SuperAdminDashboard />,
         errorElement: <RouteErrorBoundary />,
       },
-      { 
-        path: "organizations", 
+      {
+        path: "organizations",
         element: <OrganizationsList />,
         errorElement: <RouteErrorBoundary />,
       },
-      { 
-        path: "location-summary", 
+      {
+        path: "location-summary",
         element: <OrgLocationSummary />,
         errorElement: <RouteErrorBoundary />,
       },
-      { 
-        path: "organizations/:id", 
+      {
+        path: "organizations/:id",
         element: <OrganizationDetails />,
         errorElement: <RouteErrorBoundary />,
       },
-      { 
-        path: "link-admins", 
+      {
+        path: "link-admins",
         element: <LinkUnlinkedAdmins />,
         errorElement: <RouteErrorBoundary />,
       },
-      { 
-        path: "location-settings", 
+      {
+        path: "location-settings",
         element: <SuperAdminLocationSettings />,
         errorElement: <RouteErrorBoundary />,
       },
@@ -366,7 +404,7 @@ const routers = createBrowserRouter([
     path: "*",
     element: <RouteErrorBoundary />,
   },
-], { basename: '/UTC/99810035' });
+], { basename: import.meta.env.BASE_URL });
 
 export default function MainRoutes() {
   return (

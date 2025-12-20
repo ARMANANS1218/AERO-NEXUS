@@ -4,7 +4,7 @@ import { ChevronRight, ChevronDown } from 'lucide-react';
 import { menuData } from './menuData';
 
 // TailwindCSS Sidebar (no MUI). Supports nested menus, active highlight, collapse on mobile.
-export default function Sidebar({ open, onClose, role = 'Agent', width = 200 }) {
+export default function Sidebar({ open, onClose, role = 'Agent', width = 260 }) {
   const location = useLocation();
   const [openMenus, setOpenMenus] = useState({});
 
@@ -203,7 +203,7 @@ export default function Sidebar({ open, onClose, role = 'Agent', width = 200 }) 
         </div>
 
         {/* Navigation */}
-        <nav className="p-3 space-y-3 overflow-x-hidden h-[calc(100vh-4rem)]">
+        <nav className="p-3 overflow-y-auto scrollbar-hide h-[calc(100vh-4rem)]">
           {sections.map((section) => (
             <div key={section.label}>
               <div className={`px-2 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 transition-opacity ${open ? 'opacity-100' : 'opacity-0 lg:opacity-0'}`}>
