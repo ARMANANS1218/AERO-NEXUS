@@ -16,17 +16,31 @@ import {
   CssBaseline,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import { Menu as MenuIcon, Bell, Sun, Moon, Maximize, Minimize, Clock, Volume2, VolumeX } from "lucide-react";
+import {
+  Menu as MenuIcon,
+  Bell,
+  Sun,
+  Moon,
+  Maximize,
+  Minimize,
+  Clock,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import Sidebar from "../common/Sidebar";
 import ProfileCard from "../common/ProfileCard";
 import ColorModeContext from "../../context/ColorModeContext";
-import { useGetProfileQuery, useToggleBreakMutation } from "../../features/auth/authApi";
+import {
+  useGetProfileQuery,
+  useToggleBreakMutation,
+} from "../../features/auth/authApi";
 import StyledBadge from "../common/StyledBadge";
 import Notification from "../common/Notification";
 import QueryNotificationPopup from "../QueryNotificationPopup";
 import { toast } from "react-toastify";
 import { IMG_PROFILE_URL } from "../../config/api";
 import { useNotificationSoundContext } from "../../context/NotificationSoundContext";
+import { getSocket } from "../../hooks/socket";
 
 const drawerWidth = 260;
 
@@ -50,7 +64,8 @@ const UniversalAppbar = ({ children }) => {
   const colorMode = useContext(ColorModeContext);
   const { data, refetch } = useGetProfileQuery();
   const [toggleBreak, { isLoading }] = useToggleBreakMutation();
-  const { enabled: soundEnabled, setEnabled: setSoundEnabled } = useNotificationSoundContext();
+  const { enabled: soundEnabled, setEnabled: setSoundEnabled } =
+    useNotificationSoundContext();
 
   const agent = data?.data;
   const role = data?.data?.role;
@@ -58,9 +73,9 @@ const UniversalAppbar = ({ children }) => {
 
   // Avatar source logic (same as Profile component)
   const avatarSrc = useMemo(() => {
-    if (!agent?.profileImage) return '';
+    if (!agent?.profileImage) return "";
     // Backend may now store full Cloudinary URL; if so, use directly
-    if (agent.profileImage?.startsWith('http')) return agent.profileImage;
+    if (agent.profileImage?.startsWith("http")) return agent.profileImage;
     return `${IMG_PROFILE_URL}/${agent.profileImage}`;
   }, [agent?.profileImage]);
 
@@ -68,20 +83,20 @@ const UniversalAppbar = ({ children }) => {
   const [activeTime, setActiveTime] = useState(0);
   const [todayActive, setTodayActive] = useState(0);
   const [breakMenuAnchor, setBreakMenuAnchor] = useState(null);
-  const [breakReason, setBreakReason] = useState('');
+  const [breakReason, setBreakReason] = useState("");
 
   const breakOptions = [
-    { label: 'Lunch', value: 'lunch', color: '#ef4444' },
-    { label: 'Coffee Break', value: 'coffee', color: '#f59e0b' },
-    { label: 'Meeting', value: 'meeting', color: '#8b5cf6' },
-    { label: 'Personal', value: 'personal', color: '#3b82f6' },
-    { label: 'Other', value: 'other', color: '#6366f1' },
+    { label: "Lunch", value: "lunch", color: "#ef4444" },
+    { label: "Coffee Break", value: "coffee", color: "#f59e0b" },
+    { label: "Meeting", value: "meeting", color: "#8b5cf6" },
+    { label: "Personal", value: "personal", color: "#3b82f6" },
+    { label: "Other", value: "other", color: "#6366f1" },
   ];
 
   // Load timer from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem('activeTime');
-    const storedToday = localStorage.getItem('todayActive');
+    const stored = localStorage.getItem("activeTime");
+    const storedToday = localStorage.getItem("todayActive");
     if (stored) setActiveTime(parseInt(stored));
     if (storedToday) setTodayActive(parseInt(storedToday));
   }, []);
@@ -91,28 +106,55 @@ const UniversalAppbar = ({ children }) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+      2,
+      "0"
+    )}:${String(secs).padStart(2, "0")}`;
   };
 
   // Update timer every second when agent is active (NOT on break)
   useEffect(() => {
-    if (agent?.workStatus !== 'active') return;
+    if (agent?.workStatus !== "active") return;
 
     const interval = setInterval(() => {
       setActiveTime((prev) => {
         const newTime = prev + 1;
-        localStorage.setItem('activeTime', newTime.toString());
+        localStorage.setItem("activeTime", newTime.toString());
         return newTime;
       });
       setTodayActive((prev) => {
         const newTime = prev + 1;
-        localStorage.setItem('todayActive', newTime.toString());
+        localStorage.setItem("todayActive", newTime.toString());
         return newTime;
       });
     }, 1000);
 
     return () => clearInterval(interval);
   }, [agent?.workStatus]);
+
+  // Listen for real-time status updates (e.g. from auto-reconnect)
+  useEffect(() => {
+    const socket = getSocket();
+
+    if (socket) {
+      const handleUserStatus = (data) => {
+        // If the update is for THIS user, refetch profile to update UI
+        if (data.userId === agent?._id) {
+          console.log(
+            "🔄 Received user-status update, refetching profile...",
+            data
+          );
+          refetch();
+        }
+      };
+
+      socket.on("user-status", handleUserStatus);
+
+      return () => {
+        socket.off("user-status", handleUserStatus);
+      };
+    }
+  }, [agent?._id, refetch]);
 
   // Handle break selection
   const handleBreakSelect = async (reason) => {
@@ -123,35 +165,35 @@ const UniversalAppbar = ({ children }) => {
       toast.success(`Break started - ${reason}`);
       refetch();
     } catch (error) {
-      toast.error('Failed to start break');
+      toast.error("Failed to start break");
     }
   };
 
   // Handle toggle (Check-in/Check-out)
   const handleToggle = async () => {
     try {
-      if (agent?.workStatus === 'active') {
+      if (agent?.workStatus === "active" || agent?.workStatus === "busy") {
         // Show break options dropdown
-        const button = document.getElementById('break-button');
+        const button = document.getElementById("break-button");
         setBreakMenuAnchor(button);
-      } else if (agent?.workStatus === 'break') {
+      } else if (agent?.workStatus === "break") {
         // Resume from break - return to active
         const res = await toggleBreak().unwrap();
-        toast.success('✅ Checked in - Resumed from break');
-        setBreakReason('');
+        toast.success("✅ Checked in - Resumed from break");
+        setBreakReason("");
         refetch();
       } else {
         // First time - check in (or after check out)
         // Reset timer when checking in
         setActiveTime(0);
-        localStorage.setItem('activeTime', '0');
-        
+        localStorage.setItem("activeTime", "0");
+
         const res = await toggleBreak().unwrap();
-        toast.success('✅ Checked in successfully');
+        toast.success("✅ Checked in successfully");
         refetch();
       }
     } catch (error) {
-      toast.error('Failed to update status');
+      toast.error("Failed to update status");
     }
   };
 
@@ -159,19 +201,19 @@ const UniversalAppbar = ({ children }) => {
   const handleCheckOut = async () => {
     try {
       const res = await toggleBreak().unwrap();
-      toast.success('✅ Checked out - See you tomorrow!');
+      toast.success("✅ Checked out - See you tomorrow!");
       setBreakMenuAnchor(null);
-      setBreakReason('');
-      
+      setBreakReason("");
+
       // Reset timer on check out
       setActiveTime(0);
       setTodayActive(0);
-      localStorage.setItem('activeTime', '0');
-      localStorage.setItem('todayActive', '0');
-      
+      localStorage.setItem("activeTime", "0");
+      localStorage.setItem("todayActive", "0");
+
       refetch();
     } catch (error) {
-      toast.error('Failed to check out');
+      toast.error("Failed to check out");
     }
   };
   useEffect(() => {
@@ -191,8 +233,9 @@ const UniversalAppbar = ({ children }) => {
       setIsFullscreen(!!document.fullscreenElement);
     };
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
   const toggleFullscreen = async () => {
@@ -203,21 +246,33 @@ const UniversalAppbar = ({ children }) => {
         await document.exitFullscreen();
       }
     } catch (error) {
-      console.error('Error toggling fullscreen:', error);
-      toast.error('Failed to toggle fullscreen mode');
+      console.error("Error toggling fullscreen:", error);
+      toast.error("Failed to toggle fullscreen mode");
     }
   };
 
   const handleDrawerToggle = () => setOpen((prev) => !prev);
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "row", height: "100vh", width: "100%", overflow: 'hidden' }}>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "row",
+        height: "100vh",
+        width: "100%",
+        overflow: "hidden",
+      }}
+    >
       <CssBaseline />
       {/* Query Notification Popup for Agent/QA */}
       <QueryNotificationPopup />
-      
+
       {/* Sidebar - Fixed width using padding-left on main container */}
-      <Sidebar open={open} handleDrawerClose={() => setOpen(false)} role={role} />
+      <Sidebar
+        open={open}
+        handleDrawerClose={() => setOpen(false)}
+        role={role}
+      />
 
       {/* Right Section - Header + Main Content, positioned after sidebar */}
       <Box
@@ -226,8 +281,8 @@ const UniversalAppbar = ({ children }) => {
           flexDirection: "column",
           flex: 1,
           width: "100%",
-          marginLeft: open ? `${drawerWidth}px` : '64px',
-          transition: 'margin-left 0.3s ease',
+          marginLeft: open ? `${drawerWidth}px` : "64px",
+          transition: "margin-left 0.3s ease",
         }}
       >
         {/* AppBar - Full width of container */}
@@ -237,15 +292,24 @@ const UniversalAppbar = ({ children }) => {
           open={open}
           className="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 shadow-sm"
           sx={{
-            backgroundColor: theme.palette.mode === 'light' ? '#ffffff' : '#030712',
+            backgroundColor:
+              theme.palette.mode === "light" ? "#ffffff" : "#030712",
             width: `calc(100% - ${open ? drawerWidth : 64}px)`,
-            marginLeft: open ? `${drawerWidth}px` : '64px',
+            marginLeft: open ? `${drawerWidth}px` : "64px",
             top: 0,
             zIndex: 10,
-            transition: 'margin-left 0.3s ease, width 0.3s ease',
+            transition: "margin-left 0.3s ease, width 0.3s ease",
           }}
         >
-          <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, minHeight: 64 }}>
+          <Toolbar
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 1,
+              minHeight: 64,
+            }}
+          >
             <IconButton
               onClick={handleDrawerToggle}
               className="text-gray-700 dark:text-white"
@@ -256,174 +320,245 @@ const UniversalAppbar = ({ children }) => {
             {/* <Typography variant="h6">{role} Panel</Typography> */}
             <Box sx={{ flexGrow: 1 }} />
 
-          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
-            {/* ✅ Zoho-style Status Toggle with Timer and Status Display */}
-            <Stack spacing={0.5} alignItems={"center"} direction={"row"} sx={{ pr: 1, borderRight: '1px solid', borderColor: 'divider' }}>
-              
-              {/* Status Label */}
-              <Tooltip title="Current work status">
-                <Typography variant="caption" className="text-gray-700 dark:text-gray-300 whitespace-nowrap hidden sm:inline">
-                  Status:
-                </Typography>
-              </Tooltip>
-
-              {/* ON/OFF Toggle Button (Zoho Style) */}
-              <Tooltip title={
-                agent?.workStatus === 'active' 
-                  ? 'Click to take a break' 
-                  : agent?.workStatus === 'break'
-                  ? 'Click to resume work'
-                  : 'Click to check in'
-              }>
-                <Box
-                  id="break-button"
-                  onClick={handleToggle}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    px: 1.8,
-                    py: 0.1,
-                    borderRadius: '20px',
-                    backgroundColor: agent?.workStatus === 'active' 
-                      ? '#22c55e' 
-                      : '#ef4444',
-                    color: 'white',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    userSelect: 'none',
-                    border: '2px solid',
-                    borderColor: agent?.workStatus === 'active'
-                      ? '#16a34a'
-                      : '#dc2626',
-                    '&:hover': {
-                      transform: 'scale(1.05)',
-                      boxShadow: `0 4px 12px ${agent?.workStatus === 'active' ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
-                    }
-                  }}
-                >
-                  {/* Status Indicator Dot */}
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      backgroundColor: 'white',
-                      animation: 'pulse 2s infinite',
-                      '@keyframes pulse': {
-                        '0%, 100%': { opacity: 1 },
-                        '50%': { opacity: 0.6 },
-                      }
-                    }}
-                  />
-                  
-                  {/* Status Text */}
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={0.5}
+              sx={{ flexShrink: 0 }}
+            >
+              {/* ✅ Zoho-style Status Toggle with Timer and Status Display */}
+              <Stack
+                spacing={0.5}
+                alignItems={"center"}
+                direction={"row"}
+                sx={{ pr: 1, borderRight: "1px solid", borderColor: "divider" }}
+              >
+                {/* Status Label */}
+                <Tooltip title="Current work status">
                   <Typography
+                    variant="caption"
+                    className="text-gray-700 dark:text-gray-300 whitespace-nowrap hidden sm:inline"
+                  >
+                    Status:
+                  </Typography>
+                </Tooltip>
+
+                {/* ON/OFF Toggle Button (Zoho Style) */}
+                <Tooltip
+                  title={
+                    agent?.workStatus === "active"
+                      ? "Click to take a break"
+                      : agent?.workStatus === "break"
+                      ? "Click to resume work"
+                      : "Click to check in"
+                  }
+                >
+                  <Box
+                    id="break-button"
+                    onClick={handleToggle}
                     sx={{
-                      fontWeight: 'bold',
-                      fontSize: '0.85rem',
-                      whiteSpace: 'nowrap'
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      px: 1.8,
+                      py: 0.1,
+                      borderRadius: "20px",
+                      backgroundColor:
+                        agent?.workStatus === "active" ? "#22c55e" : "#ef4444",
+                      color: "white",
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                      userSelect: "none",
+                      border: "2px solid",
+                      borderColor:
+                        agent?.workStatus === "active" ? "#16a34a" : "#dc2626",
+                      "&:hover": {
+                        transform: "scale(1.05)",
+                        boxShadow: `0 4px 12px ${
+                          agent?.workStatus === "active"
+                            ? "rgba(34, 197, 94, 0.4)"
+                            : "rgba(239, 68, 68, 0.4)"
+                        }`,
+                      },
                     }}
                   >
-                    {agent?.workStatus === 'active' 
-                      ? 'ON' 
-                      : agent?.workStatus === 'break'
-                      ? 'BREAK'
-                      : 'OFF'}
-                  </Typography>
-                </Box>
-              </Tooltip>
+                    {/* Status Indicator Dot */}
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        backgroundColor: "white",
+                        animation: "pulse 2s infinite",
+                        "@keyframes pulse": {
+                          "0%, 100%": { opacity: 1 },
+                          "50%": { opacity: 0.6 },
+                        },
+                      }}
+                    />
 
-              {/* Status Details */}
-              <Tooltip title={
-                agent?.workStatus === 'active'
-                  ? 'Currently working'
-                  : agent?.workStatus === 'break'
-                  ? `On break${breakReason ? ` - ${breakReason}` : ''}`
-                  : 'Not working'
-              }>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontWeight: '600',
-                    fontSize: '0.8rem',
-                    px: 1,
-                    py: 0.25,
-                    borderRadius: '6px',
-                    backgroundColor: agent?.workStatus === 'active'
-                      ? 'rgba(34, 197, 94, 0.1)'
-                      : agent?.workStatus === 'break'
-                      ? 'rgba(239, 68, 68, 0.1)'
-                      : 'rgba(107, 114, 128, 0.1)',
-                    color: agent?.workStatus === 'active'
-                      ? '#16a34a'
-                      : agent?.workStatus === 'break'
-                      ? '#dc2626'
-                      : '#6b7280',
-                  }}
-                >
-                  {agent?.workStatus === 'active'
-                    ? 'Active'
-                    : agent?.workStatus === 'break'
-                    ? 'On Break'
-                    : 'Offline'}
-                </Typography>
-              </Tooltip>
-
-              {/* Timer Display */}
-              {(agent?.workStatus === 'active' || agent?.workStatus === 'break') && (
-                <Tooltip title={`Total active time today: ${formatTime(todayActive)}`}>
-                  <Stack direction="row" alignItems="center" spacing={0.25}>
-                    <Clock size={14} className={agent?.workStatus === 'active' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"} />
-                    <Typography 
-                      variant="caption" 
-                      className={agent?.workStatus === 'active' ? "text-green-600 dark:text-green-400 font-mono whitespace-nowrap" : "text-red-600 dark:text-red-400 font-mono whitespace-nowrap"}
-                      sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}
+                    {/* Status Text */}
+                    <Typography
+                      sx={{
+                        fontWeight: "bold",
+                        fontSize: "0.85rem",
+                        whiteSpace: "nowrap",
+                      }}
                     >
-                      {formatTime(activeTime)}
+                      {agent?.workStatus === "active"
+                        ? "ON"
+                        : agent?.workStatus === "busy"
+                        ? "BUSY"
+                        : agent?.workStatus === "break"
+                        ? "BREAK"
+                        : "OFF"}
                     </Typography>
-                  </Stack>
+                  </Box>
                 </Tooltip>
-              )}
-            </Stack>
 
-            <Tooltip title={soundEnabled ? "Mute Notification Sounds" : "Unmute Notification Sounds"}>
-              <IconButton 
-                onClick={() => {
-                  setSoundEnabled(!soundEnabled);
-                  toast.success(soundEnabled ? "Notification sounds muted" : "Notification sounds enabled", {
-                    position: "top-center",
-                    autoClose: 2000,
-                  });
-                }}
-                className="text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
-                size="small"
+                {/* Status Details */}
+                <Tooltip
+                  title={
+                    agent?.workStatus === "active"
+                      ? "Currently working"
+                      : agent?.workStatus === "busy"
+                      ? "Busy with a query"
+                      : agent?.workStatus === "break"
+                      ? `On break${breakReason ? ` - ${breakReason}` : ""}`
+                      : "Not working"
+                  }
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: "600",
+                      fontSize: "0.8rem",
+                      px: 1,
+                      py: 0.25,
+                      borderRadius: "6px",
+                      backgroundColor:
+                        agent?.workStatus === "active"
+                          ? "rgba(34, 197, 94, 0.1)"
+                          : agent?.workStatus === "busy"
+                          ? "rgba(234, 179, 8, 0.1)" // Yellow/Amber for Busy
+                          : agent?.workStatus === "break"
+                          ? "rgba(239, 68, 68, 0.1)"
+                          : "rgba(107, 114, 128, 0.1)",
+                      color:
+                        agent?.workStatus === "active"
+                          ? "#16a34a"
+                          : agent?.workStatus === "busy"
+                          ? "#ca8a04" // Darker yellow/amber text
+                          : agent?.workStatus === "break"
+                          ? "#dc2626"
+                          : "#6b7280",
+                    }}
+                  >
+                    {agent?.workStatus === "active"
+                      ? "Active"
+                      : agent?.workStatus === "busy"
+                      ? "Busy"
+                      : agent?.workStatus === "break"
+                      ? "On Break"
+                      : "Offline"}
+                  </Typography>
+                </Tooltip>
+
+                {/* Timer Display */}
+                {(agent?.workStatus === "active" ||
+                  agent?.workStatus === "break") && (
+                  <Tooltip
+                    title={`Total active time today: ${formatTime(
+                      todayActive
+                    )}`}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={0.25}>
+                      <Clock
+                        size={14}
+                        className={
+                          agent?.workStatus === "active"
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                        }
+                      />
+                      <Typography
+                        variant="caption"
+                        className={
+                          agent?.workStatus === "active"
+                            ? "text-green-600 dark:text-green-400 font-mono whitespace-nowrap"
+                            : "text-red-600 dark:text-red-400 font-mono whitespace-nowrap"
+                        }
+                        sx={{ fontSize: "0.75rem", fontWeight: "bold" }}
+                      >
+                        {formatTime(activeTime)}
+                      </Typography>
+                    </Stack>
+                  </Tooltip>
+                )}
+              </Stack>
+
+              <Tooltip
+                title={
+                  soundEnabled
+                    ? "Mute Notification Sounds"
+                    : "Unmute Notification Sounds"
+                }
               >
-                {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-              </IconButton>
-            </Tooltip>
+                <IconButton
+                  onClick={() => {
+                    setSoundEnabled(!soundEnabled);
+                    toast.success(
+                      soundEnabled
+                        ? "Notification sounds muted"
+                        : "Notification sounds enabled",
+                      {
+                        position: "top-center",
+                        autoClose: 2000,
+                      }
+                    );
+                  }}
+                  className="text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
+                  size="small"
+                >
+                  {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                </IconButton>
+              </Tooltip>
 
-            <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}>
-              <IconButton 
-                onClick={toggleFullscreen}
-                className="text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
-                size="small"
+              <Tooltip
+                title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
               >
-                {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-              </IconButton>
-            </Tooltip>
+                <IconButton
+                  onClick={toggleFullscreen}
+                  className="text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
+                  size="small"
+                >
+                  {isFullscreen ? (
+                    <Minimize size={18} />
+                  ) : (
+                    <Maximize size={18} />
+                  )}
+                </IconButton>
+              </Tooltip>
 
-            <Tooltip title={theme.palette.mode === 'dark' ? 'Light Mode' : 'Dark Mode'}>
-              <IconButton 
-                onClick={colorMode.toggleColorMode}
-                className="text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
-                size="small"
+              <Tooltip
+                title={
+                  theme.palette.mode === "dark" ? "Light Mode" : "Dark Mode"
+                }
               >
-                {theme.palette.mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-              </IconButton>
-            </Tooltip>
+                <IconButton
+                  onClick={colorMode.toggleColorMode}
+                  className="text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
+                  size="small"
+                >
+                  {theme.palette.mode === "dark" ? (
+                    <Sun size={18} />
+                  ) : (
+                    <Moon size={18} />
+                  )}
+                </IconButton>
+              </Tooltip>
 
-            {/* <Tooltip title="Notifications">
+              {/* <Tooltip title="Notifications">
               <IconButton 
                 size="small" 
                 onClick={(e) => setNotifAnchorEl(e.currentTarget)}
@@ -434,27 +569,27 @@ const UniversalAppbar = ({ children }) => {
               </IconButton>
             </Tooltip> */}
 
-            <Tooltip title="Profile">
-              <IconButton 
-                size="small" 
-                onClick={(e) => setProfileAnchorEl(e.currentTarget)}
-                className="hover:bg-gray-100 dark:hover:bg-slate-700 flex-shrink-0"
-              >
-                <StyledBadge
-                  overlap="circular"
-                  anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-                  variant={agent?.is_active === true ? "dot" : "none"}
+              <Tooltip title="Profile">
+                <IconButton
+                  size="small"
+                  onClick={(e) => setProfileAnchorEl(e.currentTarget)}
+                  className="hover:bg-gray-100 dark:hover:bg-slate-700 flex-shrink-0"
                 >
-                  <Avatar
-                    alt={agent?.first_name}
-                    src={avatarSrc}
-                    key={avatarSrc}
-                    sx={{ height: "30px", width: "30px" }}
-                  />
-                </StyledBadge>
-              </IconButton>
-            </Tooltip>
-          </Stack>
+                  <StyledBadge
+                    overlap="circular"
+                    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                    variant={agent?.is_active === true ? "dot" : "none"}
+                  >
+                    <Avatar
+                      alt={agent?.first_name}
+                      src={avatarSrc}
+                      key={avatarSrc}
+                      sx={{ height: "30px", width: "30px" }}
+                    />
+                  </StyledBadge>
+                </IconButton>
+              </Tooltip>
+            </Stack>
           </Toolbar>
         </AppBar>
 
@@ -464,10 +599,10 @@ const UniversalAppbar = ({ children }) => {
           className="flex-grow bg-gray-50 dark:bg-slate-900 w-full"
           sx={{
             flex: 1,
-            width: '100%',
-            paddingTop: '64px',
-            height: 'calc(100vh - 64px)',
-            overflowY: 'auto',
+            width: "100%",
+            paddingTop: "64px",
+            height: "calc(100vh - 64px)",
+            overflowY: "auto",
           }}
         >
           {children}
@@ -483,19 +618,39 @@ const UniversalAppbar = ({ children }) => {
         PaperProps={{
           sx: {
             minWidth: 220,
-          }
+          },
         }}
       >
         {/* Header */}
-        <Box sx={{ px: 2, py: 1, backgroundColor: 'rgba(0, 0, 0, 0.02)', borderBottom: '1px solid #e5e7eb' }}>
-          <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#6b7280' }}>
+        <Box
+          sx={{
+            px: 2,
+            py: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.02)",
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{ fontWeight: "bold", color: "#6b7280" }}
+          >
             Select Action
           </Typography>
         </Box>
 
         {/* Break Reasons */}
-        <Box sx={{ borderBottom: '1px solid #e5e7eb' }}>
-          <Typography variant="caption" sx={{ px: 2, pt: 1, display: 'block', fontWeight: '600', color: '#374151', fontSize: '0.75rem' }}>
+        <Box sx={{ borderBottom: "1px solid #e5e7eb" }}>
+          <Typography
+            variant="caption"
+            sx={{
+              px: 2,
+              pt: 1,
+              display: "block",
+              fontWeight: "600",
+              color: "#374151",
+              fontSize: "0.75rem",
+            }}
+          >
             TAKE A BREAK
           </Typography>
           {breakOptions.map((option) => (
@@ -505,21 +660,21 @@ const UniversalAppbar = ({ children }) => {
               sx={{
                 px: 2,
                 py: 1,
-                cursor: 'pointer',
-                '&:hover': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                cursor: "pointer",
+                "&:hover": {
+                  backgroundColor: "rgba(0, 0, 0, 0.05)",
                 },
-                display: 'flex',
-                alignItems: 'center',
+                display: "flex",
+                alignItems: "center",
                 gap: 1,
-                fontSize: '0.9rem',
+                fontSize: "0.9rem",
               }}
             >
               <Box
                 sx={{
                   width: 6,
                   height: 6,
-                  borderRadius: '50%',
+                  borderRadius: "50%",
                   backgroundColor: option.color,
                 }}
               />
@@ -534,24 +689,24 @@ const UniversalAppbar = ({ children }) => {
           sx={{
             px: 2,
             py: 1,
-            cursor: 'pointer',
-            '&:hover': {
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            cursor: "pointer",
+            "&:hover": {
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
             },
-            display: 'flex',
-            alignItems: 'center',
+            display: "flex",
+            alignItems: "center",
             gap: 1,
-            fontSize: '0.9rem',
-            color: '#dc2626',
-            fontWeight: '500',
+            fontSize: "0.9rem",
+            color: "#dc2626",
+            fontWeight: "500",
           }}
         >
           <Box
             sx={{
               width: 6,
               height: 6,
-              borderRadius: '50%',
-              backgroundColor: '#dc2626',
+              borderRadius: "50%",
+              backgroundColor: "#dc2626",
             }}
           />
           Check Out
