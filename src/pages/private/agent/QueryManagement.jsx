@@ -594,7 +594,7 @@ export default function QueryManagement() {
 
                       <div className="flex items-center gap-2">
                         {/* Delete button */}
-                        <button
+                        {/* <button
                           onClick={(e) => {
                             setConfirmMode('delete');
                             handleDeleteQuery(query.petitionId, e);
@@ -604,7 +604,7 @@ export default function QueryManagement() {
                           title="Delete query"
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </button> */}
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${getStatusColor(query.status)}`}>
                           {query.status}
                         </span>
