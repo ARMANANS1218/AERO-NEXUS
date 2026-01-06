@@ -6,15 +6,23 @@ export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: fetchBaseQuery({
     baseUrl: `${API_URL}/api/v1`,
-    prepareHeaders: (headers) => {
+    prepareHeaders: (headers, { getState }) => {
       const token = localStorage.getItem('token');
       if (token) {
         headers.set('Authorization', `Bearer ${token}`);
       }
+      // Don't set Content-Type for FormData - browser will set it automatically with boundary
       return headers;
     },
   }),
-  tagTypes: ['Employees', 'AdminDashboard', 'LocationAccessSettings', 'MyOrganization', 'OrgLocationRequests', 'OrgAllowedLocations'],
+  tagTypes: [
+    'Employees',
+    'AdminDashboard',
+    'LocationAccessSettings',
+    'MyOrganization',
+    'OrgLocationRequests',
+    'OrgAllowedLocations',
+  ],
   endpoints: (builder) => ({
     getAllEmployees: builder.query({
       query: () => '/user/employees',
@@ -36,6 +44,14 @@ export const adminApi = createApi({
       query: (id) => ({
         url: `/user/unblock-login/${id}`,
         method: 'PUT',
+      }),
+      invalidatesTags: ['Employees'],
+    }),
+    updateAuthorizedIP: builder.mutation({
+      query: (body) => ({
+        url: `/user/update-authorized-ip`,
+        method: 'PUT',
+        body,
       }),
       invalidatesTags: ['Employees'],
     }),
@@ -85,7 +101,7 @@ export const adminApi = createApi({
     // Escalation hierarchy (Tier -> Department -> Users)
     getEscalationHierarchy: builder.query({
       query: () => '/user/escalation/hierarchy',
-      providesTags: ['Employees']
+      providesTags: ['Employees'],
     }),
     // ===== Organization Location Access =====
     createOrgLocationRequest: builder.mutation({
@@ -94,104 +110,111 @@ export const adminApi = createApi({
         method: 'POST',
         body,
       }),
-      invalidatesTags: ['OrgLocationRequests','OrgAllowedLocations']
+      invalidatesTags: ['OrgLocationRequests', 'OrgAllowedLocations'],
     }),
     getOrgLocationRequests: builder.query({
       query: () => '/location/org/requests',
-      providesTags: ['OrgLocationRequests']
+      providesTags: ['OrgLocationRequests'],
     }),
     getOrgAllowedLocations: builder.query({
       query: () => '/location/org/allowed',
-      providesTags: ['OrgAllowedLocations']
+      providesTags: ['OrgAllowedLocations'],
     }),
     // SuperAdmin filtered queries by organization
     getOrgLocationRequestsByOrg: builder.query({
       query: (organizationId) => `/location/org/requests?organizationId=${organizationId}`,
-      providesTags: ['OrgLocationRequests']
+      providesTags: ['OrgLocationRequests'],
     }),
     getOrgAllowedLocationsByOrg: builder.query({
       query: (organizationId) => `/location/org/allowed?organizationId=${organizationId}`,
-      providesTags: ['OrgAllowedLocations']
+      providesTags: ['OrgAllowedLocations'],
     }),
     // SuperAdmin actions on requests and allowed locations
     reviewOrgLocationRequest: builder.mutation({
       query: ({ id, action, reviewComments }) => ({
         url: `/location/org/requests/${id}/review`,
         method: 'PUT',
-        body: { action, reviewComments }
+        body: { action, reviewComments },
       }),
-      invalidatesTags: ['OrgLocationRequests','OrgAllowedLocations']
+      invalidatesTags: ['OrgLocationRequests', 'OrgAllowedLocations'],
     }),
     stopAccessByOrgRequest: builder.mutation({
       query: (id) => ({
         url: `/location/org/requests/${id}/stop-access`,
-        method: 'PUT'
+        method: 'PUT',
       }),
-      invalidatesTags: ['OrgLocationRequests','OrgAllowedLocations']
+      invalidatesTags: ['OrgLocationRequests', 'OrgAllowedLocations'],
     }),
     startAccessByOrgRequest: builder.mutation({
       query: (id) => ({
         url: `/location/org/requests/${id}/start-access`,
-        method: 'PUT'
+        method: 'PUT',
       }),
-      invalidatesTags: ['OrgLocationRequests','OrgAllowedLocations']
+      invalidatesTags: ['OrgLocationRequests', 'OrgAllowedLocations'],
     }),
     deleteOrgLocationRequest: builder.mutation({
       query: (requestId) => ({
         url: `/location/org/requests/${requestId}`,
-        method: 'DELETE'
+        method: 'DELETE',
       }),
-      invalidatesTags: ['OrgLocationRequests']
+      invalidatesTags: ['OrgLocationRequests'],
     }),
     revokeOrgAllowedLocation: builder.mutation({
       query: (id) => ({
         url: `/location/org/allowed/${id}/revoke`,
-        method: 'PUT'
+        method: 'PUT',
       }),
-      invalidatesTags: ['OrgAllowedLocations']
+      invalidatesTags: ['OrgAllowedLocations'],
     }),
     deleteOrgAllowedLocation: builder.mutation({
       query: (id) => ({
         url: `/location/org/allowed/${id}`,
-        method: 'DELETE'
+        method: 'DELETE',
       }),
-      invalidatesTags: ['OrgAllowedLocations']
+      invalidatesTags: ['OrgAllowedLocations'],
     }),
     getOrgLocationSummary: builder.query({
       query: () => '/location/org/summary',
-      providesTags: ['OrgAllowedLocations','OrgLocationRequests']
+      providesTags: ['OrgAllowedLocations', 'OrgLocationRequests'],
+    }),
+    generateLocationAccessLink: builder.mutation({
+      query: (body) => ({
+        url: '/location/admin/link',
+        method: 'POST',
+        body,
+      }),
     }),
 
     // ==================== LOCATION ACCESS SETTINGS (Admin) ====================
     getLocationAccessSettings: builder.query({
       query: () => '/admin/location-access',
-      providesTags: ['LocationAccessSettings']
+      providesTags: ['LocationAccessSettings'],
     }),
     toggleLocationAccess: builder.mutation({
       query: (body) => ({
         url: '/admin/location-access/toggle',
         method: 'PUT',
-        body
+        body,
       }),
-      invalidatesTags: ['LocationAccessSettings']
+      invalidatesTags: ['LocationAccessSettings'],
     }),
     getMyOrganization: builder.query({
       query: () => '/admin/organization',
-      providesTags: ['MyOrganization']
+      providesTags: ['MyOrganization'],
     }),
 
     // ==================== LOCATION ACCESS SETTINGS (SuperAdmin) ====================
     getSuperAdminLocationAccessSettings: builder.query({
       query: (orgId) => `/superadmin/organizations/${orgId}/location-access`,
-      providesTags: ['LocationAccessSettings']
+      providesTags: ['LocationAccessSettings'],
     }),
     toggleSuperAdminLocationAccess: builder.mutation({
       query: ({ orgId, ...body }) => ({
         url: `/superadmin/organizations/${orgId}/location-access/toggle`,
         method: 'PUT',
-        body
+        body,
       }),
-      invalidatesTags: ['LocationAccessSettings']
+      invalidatesTags: ['LocationAccessSettings'],
     }),
   }),
 });
@@ -201,6 +224,7 @@ export const {
   useGetAssignableAgentsQuery,
   useUpdateEmployeeStatusMutation,
   useUnblockLoginAccountMutation,
+  useUpdateAuthorizedIPMutation,
   useDeleteEmployeeMutation,
   useUpdateEmployeeMutation,
   useResetEmployeePasswordMutation,
@@ -227,4 +251,5 @@ export const {
   useGetMyOrganizationQuery,
   useGetSuperAdminLocationAccessSettingsQuery,
   useToggleSuperAdminLocationAccessMutation,
+  useGenerateLocationAccessLinkMutation,
 } = adminApi;

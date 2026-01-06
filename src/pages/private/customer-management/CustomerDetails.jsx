@@ -1,20 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import { ArrowLeft, Edit2, Save, X, History, Package, ExternalLink, Eye, AlertCircle, CheckCircle, Clock, XCircle, Trash2 } from 'lucide-react';
-import Select from 'react-select';
-import { Country, State, City } from 'country-state-city';
-import { format } from 'date-fns';
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import {
+  ArrowLeft,
+  Edit2,
+  Save,
+  X,
+  History,
+  Package,
+  ExternalLink,
+  Eye,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  XCircle,
+  Trash2,
+} from "lucide-react";
+import Select from "react-select";
+import { Country, State, City } from "country-state-city";
+import { format } from "date-fns";
 
 export default function CustomerDetails() {
   const { customerId } = useParams();
   const navigate = useNavigate();
-  
+
   const [customerData, setCustomerData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('info'); // 'info', 'queries', 'plans'
+  const [activeTab, setActiveTab] = useState("info"); // 'info', 'queries', 'plans'
   const [queryHistory, setQueryHistory] = useState([]);
   const [planHistory, setPlanHistory] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -31,43 +45,43 @@ export default function CustomerDetails() {
   const [cities, setCities] = useState([]);
 
   const [formData, setFormData] = useState({
-    customerId: '',
-    name: '',
-    email: '',
-    mobile: '',
-    alternatePhone: '',
+    customerId: "",
+    name: "",
+    email: "",
+    mobile: "",
+    alternatePhone: "",
     governmentId: {
-      type: '',
-      number: '',
-      issuedDate: '',
-      expiryDate: ''
+      type: "",
+      number: "",
+      issuedDate: "",
+      expiryDate: "",
     },
     address: {
-      street: '',
-      locality: '',
-      city: '',
-      state: '',
-      country: '',
-      countryCode: '',
-      stateCode: '',
-      postalCode: '',
-      landmark: ''
+      street: "",
+      locality: "",
+      city: "",
+      state: "",
+      country: "",
+      countryCode: "",
+      stateCode: "",
+      postalCode: "",
+      landmark: "",
     },
-    planType: '',
-    billingType: '',
-    billingCycle: '',
-    validityPeriod: '',
-    activationDate: '',
-    deactivationDate: '',
-    serviceStatus: 'Active'
+    planType: "",
+    billingType: "",
+    billingCycle: "",
+    validityPeriod: "",
+    activationDate: "",
+    deactivationDate: "",
+    serviceStatus: "Active",
   });
 
   // Get countries
-  const countries = Country.getAllCountries().map(country => ({
+  const countries = Country.getAllCountries().map((country) => ({
     value: country.isoCode,
     label: country.name,
     name: country.name,
-    isoCode: country.isoCode
+    isoCode: country.isoCode,
   }));
 
   // Fetch customer data
@@ -80,12 +94,14 @@ export default function CustomerDetails() {
   // Update states when country changes (only clear if country is removed)
   useEffect(() => {
     if (selectedCountry) {
-      const countryStates = State.getStatesOfCountry(selectedCountry.isoCode).map(state => ({
+      const countryStates = State.getStatesOfCountry(
+        selectedCountry.isoCode
+      ).map((state) => ({
         value: state.isoCode,
         label: state.name,
         name: state.name,
         isoCode: state.isoCode,
-        countryCode: state.countryCode
+        countryCode: state.countryCode,
       }));
       setStates(countryStates);
     } else {
@@ -99,10 +115,13 @@ export default function CustomerDetails() {
   // Update cities when state changes (only clear if state is removed)
   useEffect(() => {
     if (selectedCountry && selectedState) {
-      const stateCities = City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode).map(city => ({
+      const stateCities = City.getCitiesOfState(
+        selectedCountry.isoCode,
+        selectedState.isoCode
+      ).map((city) => ({
         value: city.name,
         label: city.name,
-        name: city.name
+        name: city.name,
       }));
       setCities(stateCities);
     } else {
@@ -114,9 +133,9 @@ export default function CustomerDetails() {
   // Load query and plan history when tab changes
   useEffect(() => {
     if (customerId) {
-      if (activeTab === 'queries') {
+      if (activeTab === "queries") {
         fetchQueryHistory();
-      } else if (activeTab === 'plans') {
+      } else if (activeTab === "plans") {
         fetchPlanHistory();
       }
     }
@@ -125,66 +144,84 @@ export default function CustomerDetails() {
   const fetchCustomerData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/customer/${customerId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/v1/customer/${customerId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
         }
-      });
+      );
       const data = await response.json();
-      
+
       if (data.status) {
         const customer = data.data;
         setCustomerData(customer);
-        
+
         setFormData({
-          customerId: customer.customerId || '',
-          name: customer.name || '',
-          email: customer.email || '',
-          mobile: customer.mobile || '',
-          alternatePhone: customer.alternatePhone || '',
+          customerId: customer.customerId || "",
+          name: customer.name || "",
+          email: customer.email || "",
+          mobile: customer.mobile || "",
+          alternatePhone: customer.alternatePhone || "",
           governmentId: {
-            type: customer.governmentId?.type || '',
-            number: customer.governmentId?.number || '',
-            issuedDate: customer.governmentId?.issuedDate ? customer.governmentId.issuedDate.split('T')[0] : '',
-            expiryDate: customer.governmentId?.expiryDate ? customer.governmentId.expiryDate.split('T')[0] : ''
+            type: customer.governmentId?.type || "",
+            number: customer.governmentId?.number || "",
+            issuedDate: customer.governmentId?.issuedDate
+              ? customer.governmentId.issuedDate.split("T")[0]
+              : "",
+            expiryDate: customer.governmentId?.expiryDate
+              ? customer.governmentId.expiryDate.split("T")[0]
+              : "",
           },
           address: {
-            street: customer.address?.street || '',
-            locality: customer.address?.locality || '',
-            city: customer.address?.city || '',
-            state: customer.address?.state || '',
-            country: customer.address?.country || '',
-            countryCode: customer.address?.countryCode || '',
-            stateCode: customer.address?.stateCode || '',
-            postalCode: customer.address?.postalCode || '',
-            landmark: customer.address?.landmark || ''
+            street: customer.address?.street || "",
+            locality: customer.address?.locality || "",
+            city: customer.address?.city || "",
+            state: customer.address?.state || "",
+            country: customer.address?.country || "",
+            countryCode: customer.address?.countryCode || "",
+            stateCode: customer.address?.stateCode || "",
+            postalCode: customer.address?.postalCode || "",
+            landmark: customer.address?.landmark || "",
           },
-          planType: customer.planType || '',
-          billingType: customer.billingType || '',
-          billingCycle: customer.billingCycle || '',
-          validityPeriod: customer.validityPeriod || '',
-          activationDate: customer.activationDate ? customer.activationDate.split('T')[0] : '',
-          deactivationDate: customer.deactivationDate ? customer.deactivationDate.split('T')[0] : '',
-          serviceStatus: customer.serviceStatus || 'Active'
+          planType: customer.planType || "",
+          billingType: customer.billingType || "",
+          billingCycle: customer.billingCycle || "",
+          validityPeriod: customer.validityPeriod || "",
+          activationDate: customer.activationDate
+            ? customer.activationDate.split("T")[0]
+            : "",
+          deactivationDate: customer.deactivationDate
+            ? customer.deactivationDate.split("T")[0]
+            : "",
+          serviceStatus: customer.serviceStatus || "Active",
         });
 
         // Set dropdowns
         let foundCountry = null;
         if (customer.address?.countryCode) {
-          foundCountry = countries.find(c => c.isoCode === customer.address.countryCode);
+          foundCountry = countries.find(
+            (c) => c.isoCode === customer.address.countryCode
+          );
         } else if (customer.address?.country) {
-          foundCountry = countries.find(c => c.name.toLowerCase() === customer.address.country.toLowerCase());
+          foundCountry = countries.find(
+            (c) =>
+              c.name.toLowerCase() === customer.address.country.toLowerCase()
+          );
         }
-        
+
         if (foundCountry) {
           setSelectedCountry(foundCountry);
-          
-          const countryStates = State.getStatesOfCountry(foundCountry.isoCode).map(state => ({
+
+          const countryStates = State.getStatesOfCountry(
+            foundCountry.isoCode
+          ).map((state) => ({
             value: state.isoCode,
             label: state.name,
             name: state.name,
             isoCode: state.isoCode,
-            countryCode: state.countryCode
+            countryCode: state.countryCode,
           }));
           setStates(countryStates);
         }
@@ -194,34 +231,47 @@ export default function CustomerDetails() {
           let foundState = null;
           const countryCode = foundCountry.isoCode;
           const statesList = State.getStatesOfCountry(countryCode);
-          
+
           if (customer.address?.stateCode) {
-            foundState = statesList.find(s => s.isoCode === customer.address.stateCode);
+            foundState = statesList.find(
+              (s) => s.isoCode === customer.address.stateCode
+            );
           } else if (customer.address?.state) {
-            foundState = statesList.find(s => s.name.toLowerCase() === customer.address.state.toLowerCase());
-            
+            foundState = statesList.find(
+              (s) =>
+                s.name.toLowerCase() === customer.address.state.toLowerCase()
+            );
+
             if (!foundState) {
-              foundState = statesList.find(s => 
-                s.name.toLowerCase().includes(customer.address.state.toLowerCase()) ||
-                customer.address.state.toLowerCase().includes(s.name.toLowerCase())
+              foundState = statesList.find(
+                (s) =>
+                  s.name
+                    .toLowerCase()
+                    .includes(customer.address.state.toLowerCase()) ||
+                  customer.address.state
+                    .toLowerCase()
+                    .includes(s.name.toLowerCase())
               );
             }
           }
-          
+
           if (foundState) {
             const stateObj = {
               value: foundState.isoCode,
               label: foundState.name,
               name: foundState.name,
               isoCode: foundState.isoCode,
-              countryCode: foundState.countryCode
+              countryCode: foundState.countryCode,
             };
             setSelectedState(stateObj);
-            
-            const stateCities = City.getCitiesOfState(countryCode, foundState.isoCode).map(city => ({
+
+            const stateCities = City.getCitiesOfState(
+              countryCode,
+              foundState.isoCode
+            ).map((city) => ({
               value: city.name,
               label: city.name,
-              name: city.name
+              name: city.name,
             }));
             setCities(stateCities);
           }
@@ -231,13 +281,13 @@ export default function CustomerDetails() {
           setSelectedCity({
             value: customer.address.city,
             label: customer.address.city,
-            name: customer.address.city
+            name: customer.address.city,
           });
         }
       }
     } catch (error) {
-      console.error('Failed to load customer:', error);
-      toast.error('Failed to load customer data');
+      console.error("Failed to load customer:", error);
+      toast.error("Failed to load customer data");
     } finally {
       setLoading(false);
     }
@@ -247,11 +297,13 @@ export default function CustomerDetails() {
     setIsLoadingHistory(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/customer/${customerId}/query-history`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/v1/customer/${customerId}/query-history`,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
         }
       );
       const data = await response.json();
@@ -259,8 +311,8 @@ export default function CustomerDetails() {
         setQueryHistory(data.data || []);
       }
     } catch (error) {
-      console.error('Failed to fetch query history:', error);
-      toast.error('Failed to load query history');
+      console.error("Failed to fetch query history:", error);
+      toast.error("Failed to load query history");
     } finally {
       setIsLoadingHistory(false);
     }
@@ -270,11 +322,13 @@ export default function CustomerDetails() {
     setIsLoadingHistory(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/customer/${customerId}/plan-history`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/v1/customer/${customerId}/plan-history`,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
         }
       );
       const data = await response.json();
@@ -282,8 +336,8 @@ export default function CustomerDetails() {
         setPlanHistory(data.data || []);
       }
     } catch (error) {
-      console.error('Failed to fetch plan history:', error);
-      toast.error('Failed to load plan history');
+      console.error("Failed to fetch plan history:", error);
+      toast.error("Failed to load plan history");
     } finally {
       setIsLoadingHistory(false);
     }
@@ -295,26 +349,26 @@ export default function CustomerDetails() {
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/v1/customer/${customerId}`,
         {
-          method: 'PUT',
+          method: "PUT",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-          body: JSON.stringify(formData)
+          body: JSON.stringify(formData),
         }
       );
-      
+
       const data = await response.json();
       if (data.status) {
-        toast.success('Customer updated successfully');
+        toast.success("Customer updated successfully");
         setIsEditMode(false);
         fetchCustomerData();
       } else {
-        toast.error(data.message || 'Failed to update customer');
+        toast.error(data.message || "Failed to update customer");
       }
     } catch (error) {
-      console.error('Failed to update customer:', error);
-      toast.error('Failed to update customer');
+      console.error("Failed to update customer:", error);
+      toast.error("Failed to update customer");
     } finally {
       setIsSaving(false);
     }
@@ -322,56 +376,56 @@ export default function CustomerDetails() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setFormData(prev => ({
+    if (name.includes(".")) {
+      const [parent, child] = name.split(".");
+      setFormData((prev) => ({
         ...prev,
         [parent]: {
           ...prev[parent],
-          [child]: value
-        }
+          [child]: value,
+        },
       }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
   const handleCountryChange = (selectedOption) => {
     setSelectedCountry(selectedOption);
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       address: {
         ...prev.address,
-        country: selectedOption?.name || '',
-        countryCode: selectedOption?.isoCode || '',
-        state: '',
-        stateCode: '',
-        city: ''
-      }
+        country: selectedOption?.name || "",
+        countryCode: selectedOption?.isoCode || "",
+        state: "",
+        stateCode: "",
+        city: "",
+      },
     }));
   };
 
   const handleStateChange = (selectedOption) => {
     setSelectedState(selectedOption);
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       address: {
         ...prev.address,
-        state: selectedOption?.name || '',
-        stateCode: selectedOption?.isoCode || '',
-        city: ''
-      }
+        state: selectedOption?.name || "",
+        stateCode: selectedOption?.isoCode || "",
+        city: "",
+      },
     }));
   };
 
   const handleCityChange = (selectedOption) => {
     setSelectedCity(selectedOption);
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       address: {
         ...prev.address,
-        city: selectedOption?.name || ''
-      }
+        city: selectedOption?.name || "",
+      },
     }));
   };
 
@@ -382,10 +436,14 @@ export default function CustomerDetails() {
       billingType: plan.billingType,
       billingCycle: plan.billingCycle,
       validityPeriod: plan.validityPeriod,
-      activationDate: plan.activationDate ? new Date(plan.activationDate).toISOString().split('T')[0] : '',
-      deactivationDate: plan.deactivationDate ? new Date(plan.deactivationDate).toISOString().split('T')[0] : '',
+      activationDate: plan.activationDate
+        ? new Date(plan.activationDate).toISOString().split("T")[0]
+        : "",
+      deactivationDate: plan.deactivationDate
+        ? new Date(plan.deactivationDate).toISOString().split("T")[0]
+        : "",
       serviceStatus: plan.serviceStatus,
-      notes: plan.notes || ''
+      notes: plan.notes || "",
     });
   };
 
@@ -393,27 +451,29 @@ export default function CustomerDetails() {
     setIsSaving(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/customer/${customerId}/plan/${editingPlanId}`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/v1/customer/${customerId}/plan/${editingPlanId}`,
         {
-          method: 'PUT',
+          method: "PUT",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-          body: JSON.stringify(editPlanData)
+          body: JSON.stringify(editPlanData),
         }
       );
       const data = await response.json();
       if (data.status) {
-        toast.success('Plan updated successfully');
+        toast.success("Plan updated successfully");
         setEditingPlanId(null);
         setEditPlanData(null);
         fetchPlanHistory();
       } else {
-        toast.error(data.message || 'Failed to update plan');
+        toast.error(data.message || "Failed to update plan");
       }
     } catch (error) {
-      toast.error('Failed to update plan');
+      toast.error("Failed to update plan");
     } finally {
       setIsSaving(false);
     }
@@ -429,23 +489,25 @@ export default function CustomerDetails() {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/customer/${customerId}/plan/${planToDelete}`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/v1/customer/${customerId}/plan/${planToDelete}`,
         {
-          method: 'DELETE',
+          method: "DELETE",
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
         }
       );
       const data = await response.json();
       if (data.status) {
-        toast.success('Plan deleted successfully');
+        toast.success("Plan deleted successfully");
         fetchPlanHistory();
       } else {
-        toast.error(data.message || 'Failed to delete plan');
+        toast.error(data.message || "Failed to delete plan");
       }
     } catch (error) {
-      toast.error('Failed to delete plan');
+      toast.error("Failed to delete plan");
     } finally {
       setShowDeletePlanModal(false);
       setPlanToDelete(null);
@@ -454,59 +516,121 @@ export default function CustomerDetails() {
 
   const handleEditPlanChange = (e) => {
     const { name, value } = e.target;
-    setEditPlanData(prev => ({ ...prev, [name]: value }));
+    setEditPlanData((prev) => ({ ...prev, [name]: value }));
   };
 
   const getStatusBadge = (status) => {
     const badges = {
-      'Pending': { color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', icon: <Clock size={14} /> },
-      'Accepted': { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', icon: <CheckCircle size={14} /> },
-      'In Progress': { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200', icon: <AlertCircle size={14} /> },
-      'Resolved': { color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', icon: <CheckCircle size={14} /> },
-      'Expired': { color: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200', icon: <XCircle size={14} /> },
-      'Transferred': { color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200', icon: <AlertCircle size={14} /> },
-      'Active': { color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', icon: <CheckCircle size={14} /> },
-      'Inactive': { color: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200', icon: <XCircle size={14} /> },
-      'Suspended': { color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', icon: <AlertCircle size={14} /> },
+      Pending: {
+        color:
+          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+        icon: <Clock size={14} />,
+      },
+      Accepted: {
+        color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+        icon: <CheckCircle size={14} />,
+      },
+      "In Progress": {
+        color:
+          "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+        icon: <AlertCircle size={14} />,
+      },
+      Resolved: {
+        color:
+          "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+        icon: <CheckCircle size={14} />,
+      },
+      Expired: {
+        color: "bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200",
+        icon: <XCircle size={14} />,
+      },
+      Transferred: {
+        color:
+          "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+        icon: <AlertCircle size={14} />,
+      },
+      Active: {
+        color:
+          "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+        icon: <CheckCircle size={14} />,
+      },
+      Inactive: {
+        color: "bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200",
+        icon: <XCircle size={14} />,
+      },
+      Suspended: {
+        color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+        icon: <AlertCircle size={14} />,
+      },
     };
-    return badges[status] || badges['Pending'];
+    return badges[status] || badges["Pending"];
   };
 
   const selectStyles = {
     control: (base, state) => ({
       ...base,
-      backgroundColor: document.documentElement.classList.contains('dark') ? '#374151' : '#ffffff',
-      borderColor: state.isFocused ? '#0d9488' : (document.documentElement.classList.contains('dark') ? '#4b5563' : '#d1d5db'),
-      color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#111827',
-      minHeight: '38px',
-      boxShadow: state.isFocused ? '0 0 0 1px #0d9488' : 'none',
-      '&:hover': { borderColor: '#0d9488' }
+      backgroundColor: document.documentElement.classList.contains("dark")
+        ? "#374151"
+        : "#ffffff",
+      borderColor: state.isFocused
+        ? "#0d9488"
+        : document.documentElement.classList.contains("dark")
+        ? "#4b5563"
+        : "#d1d5db",
+      color: document.documentElement.classList.contains("dark")
+        ? "#ffffff"
+        : "#111827",
+      minHeight: "38px",
+      boxShadow: state.isFocused ? "0 0 0 1px #0d9488" : "none",
+      "&:hover": { borderColor: "#0d9488" },
     }),
     menu: (base) => ({
       ...base,
-      backgroundColor: document.documentElement.classList.contains('dark') ? '#374151' : '#ffffff',
-      border: `1px solid ${document.documentElement.classList.contains('dark') ? '#4b5563' : '#d1d5db'}`,
-      zIndex: 9999
+      backgroundColor: document.documentElement.classList.contains("dark")
+        ? "#374151"
+        : "#ffffff",
+      border: `1px solid ${
+        document.documentElement.classList.contains("dark")
+          ? "#4b5563"
+          : "#d1d5db"
+      }`,
+      zIndex: 9999,
     }),
     option: (base, state) => ({
       ...base,
-      backgroundColor: state.isSelected ? '#0d9488' : state.isFocused ? (document.documentElement.classList.contains('dark') ? '#4b5563' : '#f3f4f6') : 'transparent',
-      color: state.isSelected ? 'white' : (document.documentElement.classList.contains('dark') ? '#ffffff' : '#111827'),
-      cursor: 'pointer',
-      '&:active': { backgroundColor: '#0f766e' }
+      backgroundColor: state.isSelected
+        ? "#0d9488"
+        : state.isFocused
+        ? document.documentElement.classList.contains("dark")
+          ? "#4b5563"
+          : "#f3f4f6"
+        : "transparent",
+      color: state.isSelected
+        ? "white"
+        : document.documentElement.classList.contains("dark")
+        ? "#ffffff"
+        : "#111827",
+      cursor: "pointer",
+      "&:active": { backgroundColor: "#0f766e" },
     }),
-    singleValue: (base) => ({ 
-      ...base, 
-      color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#111827'
+    singleValue: (base) => ({
+      ...base,
+      color: document.documentElement.classList.contains("dark")
+        ? "#ffffff"
+        : "#111827",
     }),
-    input: (base) => ({ 
-      ...base, 
-      color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#111827'
+    input: (base) => ({
+      ...base,
+      color: document.documentElement.classList.contains("dark")
+        ? "#ffffff"
+        : "#111827",
     }),
-    placeholder: (base) => ({ 
-      ...base, 
-      color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-    })
+    placeholder: (base) => ({
+      ...base,
+      color: document.documentElement.classList.contains("dark")
+        ? "#9ca3af"
+        : "#6b7280",
+    }),
   };
 
   if (loading) {
@@ -514,7 +638,9 @@ export default function CustomerDetails() {
       <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-950">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-white">Loading customer details...</p>
+          <p className="mt-4 text-gray-600 dark:text-white">
+            Loading customer details...
+          </p>
         </div>
       </div>
     );
@@ -548,18 +674,34 @@ export default function CustomerDetails() {
                 onClick={() => navigate(-1)}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                <ArrowLeft size={20} className="text-gray-600 dark:text-white" />
+                <ArrowLeft
+                  size={20}
+                  className="text-gray-600 dark:text-white"
+                />
               </button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {customerData.name}
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-white">
-                  Customer ID: {customerData.customerId}
-                </p>
+              <div className="flex items-center gap-4">
+                {customerData.profileImage ? (
+                  <img
+                    src={customerData.profileImage}
+                    alt={customerData.name}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xl border-2 border-gray-200 dark:border-gray-700">
+                    {customerData.name?.charAt(0).toUpperCase() || "C"}
+                  </div>
+                )}
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {customerData.name}
+                  </h1>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Customer ID: {customerData.customerId}
+                  </p>
+                </div>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               {isEditMode ? (
                 <>
@@ -579,7 +721,7 @@ export default function CustomerDetails() {
                     className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
                   >
                     <Save size={18} />
-                    {isSaving ? 'Saving...' : 'Save Changes'}
+                    {isSaving ? "Saving..." : "Save Changes"}
                   </button>
                 </>
               ) : (
@@ -601,32 +743,32 @@ export default function CustomerDetails() {
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <nav className="flex gap-8">
             <button
-              onClick={() => setActiveTab('info')}
+              onClick={() => setActiveTab("info")}
               className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'info'
-                  ? 'border-teal-600 text-teal-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-white dark:hover:text-gray-300'
+                activeTab === "info"
+                  ? "border-teal-600 text-teal-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-white dark:hover:text-gray-300"
               }`}
             >
               Customer Info
             </button>
             <button
-              onClick={() => setActiveTab('queries')}
+              onClick={() => setActiveTab("queries")}
               className={`flex items-center gap-2 py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'queries'
-                  ? 'border-teal-600 text-teal-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-white dark:hover:text-gray-300'
+                activeTab === "queries"
+                  ? "border-teal-600 text-teal-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-white dark:hover:text-gray-300"
               }`}
             >
               <History size={16} />
               Query History
             </button>
             <button
-              onClick={() => setActiveTab('plans')}
+              onClick={() => setActiveTab("plans")}
               className={`flex items-center gap-2 py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'plans'
-                  ? 'border-teal-600 text-teal-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-white dark:hover:text-gray-300'
+                activeTab === "plans"
+                  ? "border-teal-600 text-teal-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-white dark:hover:text-gray-300"
               }`}
             >
               <Package size={16} />
@@ -638,14 +780,18 @@ export default function CustomerDetails() {
 
       {/* Content */}
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'info' && (
+        {activeTab === "info" && (
           <div className="bg-white dark:bg-gray-950 rounded-lg shadow-sm p-6 space-y-6">
             {/* Personal Information */}
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Personal Information</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Personal Information
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Name *
+                  </label>
                   <input
                     type="text"
                     name="name"
@@ -656,7 +802,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Email *
+                  </label>
                   <input
                     type="email"
                     name="email"
@@ -667,7 +815,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mobile *</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Mobile *
+                  </label>
                   <input
                     type="tel"
                     name="mobile"
@@ -678,7 +828,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alternate Phone</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Alternate Phone
+                  </label>
                   <input
                     type="tel"
                     name="alternatePhone"
@@ -693,10 +845,14 @@ export default function CustomerDetails() {
 
             {/* Government ID */}
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Government ID</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Government ID
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ID Type</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    ID Type
+                  </label>
                   <select
                     name="governmentId.type"
                     value={formData.governmentId.type}
@@ -713,7 +869,9 @@ export default function CustomerDetails() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ID Number</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    ID Number
+                  </label>
                   <input
                     type="text"
                     name="governmentId.number"
@@ -724,7 +882,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Issue Date</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Issue Date
+                  </label>
                   <input
                     type="date"
                     name="governmentId.issuedDate"
@@ -735,7 +895,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expiry Date</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Expiry Date
+                  </label>
                   <input
                     type="date"
                     name="governmentId.expiryDate"
@@ -750,10 +912,14 @@ export default function CustomerDetails() {
 
             {/* Address */}
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Address</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Address
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Country
+                  </label>
                   <Select
                     value={selectedCountry}
                     onChange={handleCountryChange}
@@ -765,7 +931,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">State</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    State
+                  </label>
                   <Select
                     value={selectedState}
                     onChange={handleStateChange}
@@ -777,7 +945,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">City</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    City
+                  </label>
                   <Select
                     value={selectedCity}
                     onChange={handleCityChange}
@@ -789,7 +959,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Postal Code</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Postal Code
+                  </label>
                   <input
                     type="text"
                     name="address.postalCode"
@@ -800,7 +972,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Street</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Street
+                  </label>
                   <input
                     type="text"
                     name="address.street"
@@ -811,7 +985,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Locality</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Locality
+                  </label>
                   <input
                     type="text"
                     name="address.locality"
@@ -822,7 +998,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Landmark</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Landmark
+                  </label>
                   <input
                     type="text"
                     name="address.landmark"
@@ -837,10 +1015,14 @@ export default function CustomerDetails() {
 
             {/* Plan Information */}
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Current Plan</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Current Plan
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Plan Type</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Plan Type
+                  </label>
                   <input
                     type="text"
                     name="planType"
@@ -851,7 +1033,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Billing Type</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Billing Type
+                  </label>
                   <select
                     name="billingType"
                     value={formData.billingType}
@@ -865,7 +1049,9 @@ export default function CustomerDetails() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Billing Cycle</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Billing Cycle
+                  </label>
                   <select
                     name="billingCycle"
                     value={formData.billingCycle}
@@ -881,7 +1067,9 @@ export default function CustomerDetails() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Validity (days)</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Validity (days)
+                  </label>
                   <input
                     type="number"
                     name="validityPeriod"
@@ -892,7 +1080,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Activation Date</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Activation Date
+                  </label>
                   <input
                     type="date"
                     name="activationDate"
@@ -903,7 +1093,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Deactivation Date</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Deactivation Date
+                  </label>
                   <input
                     type="date"
                     name="deactivationDate"
@@ -914,7 +1106,9 @@ export default function CustomerDetails() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service Status</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Service Status
+                  </label>
                   <select
                     name="serviceStatus"
                     value={formData.serviceStatus}
@@ -932,9 +1126,11 @@ export default function CustomerDetails() {
           </div>
         )}
 
-        {activeTab === 'queries' && (
+        {activeTab === "queries" && (
           <div className="bg-white dark:bg-gray-950 rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Query History</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Query History
+            </h2>
             {isLoadingHistory ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto"></div>
@@ -947,7 +1143,7 @@ export default function CustomerDetails() {
               <div className="space-y-3">
                 {queryHistory.map((query) => {
                   const badge = getStatusBadge(query.status);
-                  
+
                   return (
                     <div
                       key={query._id}
@@ -956,7 +1152,9 @@ export default function CustomerDetails() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}
+                            >
                               {badge.icon}
                               {query.status}
                             </span>
@@ -967,14 +1165,23 @@ export default function CustomerDetails() {
                             )}
                           </div>
                           <p className="text-sm text-gray-600 dark:text-white mb-1">
-                            <strong>Subject:</strong> {query.subject || 'No subject'}
+                            <strong>Subject:</strong>{" "}
+                            {query.subject || "No subject"}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-500">
-                            Created: {format(new Date(query.createdAt), 'MMM dd, yyyy hh:mm a')}
+                            Created:{" "}
+                            {format(
+                              new Date(query.createdAt),
+                              "MMM dd, yyyy hh:mm a"
+                            )}
                           </p>
                         </div>
                         <button
-                          onClick={() => navigate(`../query/${query.petitionId || query._id}`)}
+                          onClick={() =>
+                            navigate(
+                              `../query/${query.petitionId || query._id}`
+                            )
+                          }
                           className="flex items-center gap-1 px-3 py-1.5 text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
                         >
                           <Eye size={14} />
@@ -989,9 +1196,11 @@ export default function CustomerDetails() {
           </div>
         )}
 
-        {activeTab === 'plans' && (
+        {activeTab === "plans" && (
           <div className="bg-white dark:bg-gray-950 rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Plan History</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Plan History
+            </h2>
             {isLoadingHistory ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto"></div>
@@ -1005,7 +1214,7 @@ export default function CustomerDetails() {
                 {planHistory.map((plan) => {
                   const badge = getStatusBadge(plan.serviceStatus);
                   const isEditing = editingPlanId === plan._id;
-                  
+
                   return (
                     <div
                       key={plan._id}
@@ -1015,7 +1224,9 @@ export default function CustomerDetails() {
                         <div className="space-y-3">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Plan Type</label>
+                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Plan Type
+                              </label>
                               <input
                                 type="text"
                                 name="planType"
@@ -1025,7 +1236,9 @@ export default function CustomerDetails() {
                               />
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Service Status</label>
+                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Service Status
+                              </label>
                               <select
                                 name="serviceStatus"
                                 value={editPlanData.serviceStatus}
@@ -1038,7 +1251,9 @@ export default function CustomerDetails() {
                               </select>
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Activation Date</label>
+                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Activation Date
+                              </label>
                               <input
                                 type="date"
                                 name="activationDate"
@@ -1048,7 +1263,9 @@ export default function CustomerDetails() {
                               />
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Deactivation Date</label>
+                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Deactivation Date
+                              </label>
                               <input
                                 type="date"
                                 name="deactivationDate"
@@ -1058,7 +1275,9 @@ export default function CustomerDetails() {
                               />
                             </div>
                             <div className="md:col-span-2">
-                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Notes
+                              </label>
                               <textarea
                                 name="notes"
                                 value={editPlanData.notes}
@@ -1074,7 +1293,7 @@ export default function CustomerDetails() {
                               disabled={isSaving}
                               className="px-3 py-1.5 text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
                             >
-                              {isSaving ? 'Saving...' : 'Save'}
+                              {isSaving ? "Saving..." : "Save"}
                             </button>
                             <button
                               onClick={() => {
@@ -1091,7 +1310,9 @@ export default function CustomerDetails() {
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
-                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}
+                              >
                                 {badge.icon}
                                 {plan.serviceStatus}
                               </span>
@@ -1100,12 +1321,39 @@ export default function CustomerDetails() {
                               </span>
                             </div>
                             <div className="text-sm text-gray-600 dark:text-white space-y-1">
-                              <p><strong>Billing:</strong> {plan.billingType} - {plan.billingCycle}</p>
-                              <p><strong>Validity:</strong> {plan.validityPeriod} days</p>
-                              <p><strong>Active:</strong> {format(new Date(plan.activationDate), 'MMM dd, yyyy')} to {plan.deactivationDate ? format(new Date(plan.deactivationDate), 'MMM dd, yyyy') : 'N/A'}</p>
-                              {plan.notes && <p><strong>Notes:</strong> {plan.notes}</p>}
+                              <p>
+                                <strong>Billing:</strong> {plan.billingType} -{" "}
+                                {plan.billingCycle}
+                              </p>
+                              <p>
+                                <strong>Validity:</strong> {plan.validityPeriod}{" "}
+                                days
+                              </p>
+                              <p>
+                                <strong>Active:</strong>{" "}
+                                {format(
+                                  new Date(plan.activationDate),
+                                  "MMM dd, yyyy"
+                                )}{" "}
+                                to{" "}
+                                {plan.deactivationDate
+                                  ? format(
+                                      new Date(plan.deactivationDate),
+                                      "MMM dd, yyyy"
+                                    )
+                                  : "N/A"}
+                              </p>
+                              {plan.notes && (
+                                <p>
+                                  <strong>Notes:</strong> {plan.notes}
+                                </p>
+                              )}
                               <p className="text-xs text-gray-500">
-                                Added: {format(new Date(plan.addedAt), 'MMM dd, yyyy hh:mm a')}
+                                Added:{" "}
+                                {format(
+                                  new Date(plan.addedAt),
+                                  "MMM dd, yyyy hh:mm a"
+                                )}
                               </p>
                             </div>
                           </div>
@@ -1140,9 +1388,12 @@ export default function CustomerDetails() {
       {showDeletePlanModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-slate-950 rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Delete Plan</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Delete Plan
+            </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Are you sure you want to delete this plan? This action cannot be undone.
+              Are you sure you want to delete this plan? This action cannot be
+              undone.
             </p>
             <div className="flex gap-3 justify-center">
               <button

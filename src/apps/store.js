@@ -7,6 +7,7 @@ import { adminApi } from '../features/admin/adminApi';
 import { customerApi } from '../features/customer/customerApi';
 import { queryApi } from '../features/query/queryApi';
 import { qaEvaluationApi } from '../features/qa/qaEvaluationApi';
+import { qaTicketEvaluationApi } from '../features/qa/qaTicketEvaluationApi';
 import { screenshotApi } from '../features/screenshot/screenshotApi';
 import { dashboardApi } from '../features/dashboard/dashboardApi';
 import { emailApi } from '../features/email/emailApi';
@@ -29,6 +30,7 @@ export const store = configureStore({
     [dashboardApi.reducerPath]: dashboardApi.reducer,
     [emailApi.reducerPath]: emailApi.reducer,
     [qaEvaluationApi.reducerPath]: qaEvaluationApi.reducer,
+    [qaTicketEvaluationApi.reducerPath]: qaTicketEvaluationApi.reducer,
     [geocamApi.reducerPath]: geocamApi.reducer,
     [emailTicketApi.reducerPath]: emailTicketApi.reducer,
     [faqApi.reducerPath]: faqApi.reducer,
@@ -47,6 +49,7 @@ export const store = configureStore({
       .concat(dashboardApi.middleware)
       .concat(emailApi.middleware)
       .concat(qaEvaluationApi.middleware)
+      .concat(qaTicketEvaluationApi.middleware)
       .concat(geocamApi.middleware)
       .concat(emailTicketApi.middleware)
       .concat(faqApi.middleware)

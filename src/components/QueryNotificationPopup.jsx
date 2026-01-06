@@ -146,7 +146,7 @@ export default function QueryNotificationPopup() {
   return (
     <div className="fixed top-20 right-4 z-50 space-y-2 w-[430px]">
       {/* Notification Sound */}
-      <audio ref={notificationSoundRef} src="/UTC/99810035/notification-tone.mp3" preload="auto" />
+      <audio ref={notificationSoundRef} src="/118029-TX/notification-tone.mp3" preload="auto" />
       {notifications.map((notification) => (
         <div
           key={notification.id}

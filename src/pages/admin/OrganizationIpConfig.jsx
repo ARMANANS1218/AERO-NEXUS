@@ -211,7 +211,7 @@ const OrganizationIpConfig = () => {
   };
 
   return (
-    <div className={`p-6 max-w-7xl mx-auto ${darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
+    <div className={`p-6 max-w-7xl mx-auto ${darkMode ? 'bg-gray-950 text-white' : 'bg-white text-gray-900'}`}>
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">

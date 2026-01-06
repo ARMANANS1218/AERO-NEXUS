@@ -16,6 +16,7 @@ const TLActivity = () => {
     const loginTime = tl.login_time ? new Date(tl.login_time) : null;
     const logoutTime = tl.logout_time ? new Date(tl.logout_time) : null;
     const breakLogs = tl.breakLogs || [];
+    const activeTime = tl.activeTime || 0;
     
     // Calculate total break duration
     let totalBreakMinutes = 0;
@@ -27,14 +28,7 @@ const TLActivity = () => {
       }
     });
     
-    // Calculate active time (login to logout minus breaks)
-    let activeMinutes = 0;
-    if (loginTime) {
-      const endTime = logoutTime || new Date(); // Use current time if still active
-      const totalMinutes = Math.floor((endTime - loginTime) / 60000);
-      activeMinutes = Math.max(0, totalMinutes - totalBreakMinutes);
-    }
-    
+
     return {
       ...tl,
       activity: {
@@ -42,7 +36,7 @@ const TLActivity = () => {
         logoutTime: logoutTime,
         totalBreaks: breakLogs.length,
         breakDuration: totalBreakMinutes,
-        activeTime: activeMinutes,
+        activeTime: activeTime,
         idleTime: 0, // Can be calculated based on workStatus changes if tracked
       }
     };

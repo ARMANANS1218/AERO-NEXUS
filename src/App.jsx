@@ -50,7 +50,7 @@ const App = () => {
     try {
       // Temporarily disable transitions for instant theme change
       document.documentElement.classList.add('theme-transitioning');
-      
+
       // write both data-theme and class-based dark mode for Tailwind
       document.documentElement.setAttribute('data-theme', mode);
       if (mode === 'dark') {
@@ -58,17 +58,17 @@ const App = () => {
       } else {
         document.documentElement.classList.remove('dark');
       }
-      
+
       // Force immediate repaint
       document.documentElement.offsetHeight;
-      
+
       // Re-enable transitions after theme change completes
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           document.documentElement.classList.remove('theme-transitioning');
         });
       });
-      
+
       // persist preference
       localStorage.setItem('theme', mode);
     } catch {

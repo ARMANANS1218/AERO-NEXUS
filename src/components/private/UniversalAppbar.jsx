@@ -30,6 +30,7 @@ import {
 import Sidebar from "../common/Sidebar";
 import ProfileCard from "../common/ProfileCard";
 import ColorModeContext from "../../context/ColorModeContext";
+
 import {
   useGetProfileQuery,
   useToggleBreakMutation,
@@ -38,9 +39,9 @@ import StyledBadge from "../common/StyledBadge";
 import Notification from "../common/Notification";
 import QueryNotificationPopup from "../QueryNotificationPopup";
 import { toast } from "react-toastify";
-import { IMG_PROFILE_URL } from "../../config/api";
+import { IMG_PROFILE_URL, API_URL } from "../../config/api";
 import { useNotificationSoundContext } from "../../context/NotificationSoundContext";
-import { getSocket } from "../../hooks/socket";
+import { getQuerySocket } from "../../socket/querySocket";
 
 const drawerWidth = 260;
 
@@ -56,7 +57,8 @@ const AppBar = styled(MuiAppBar, {
 
 const UniversalAppbar = ({ children }) => {
   const isLaptop = useMediaQuery("(min-width:1024px)");
-  const [open, setOpen] = useState(isLaptop);
+  const [open, setOpen] = useState(false); // Start collapsed by default
+  const [sidebarWidth, setSidebarWidth] = useState(64); // Track sidebar width
   const [profileAnchorEl, setProfileAnchorEl] = useState(null);
   const [notifAnchorEl, setNotifAnchorEl] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -69,7 +71,7 @@ const UniversalAppbar = ({ children }) => {
 
   const agent = data?.data;
   const role = data?.data?.role;
-  console.log("role", role);
+  // console.log("role", role);
 
   // Avatar source logic (same as Profile component)
   const avatarSrc = useMemo(() => {
@@ -79,9 +81,13 @@ const UniversalAppbar = ({ children }) => {
     return `${IMG_PROFILE_URL}/${agent.profileImage}`;
   }, [agent?.profileImage]);
 
-  // Timer state for active time tracking
-  const [activeTime, setActiveTime] = useState(0);
-  const [todayActive, setTodayActive] = useState(0);
+  // Optimized Hybrid Timer: LocalStorage (Instant) + Backend (Sync)
+  // 1. Initialize from LocalStorage (if available) to show time immediately
+  const [activeSeconds, setActiveSeconds] = useState(() => {
+    const saved = localStorage.getItem("activeTimerSeconds");
+    return saved ? parseFloat(saved) : 0;
+  });
+
   const [breakMenuAnchor, setBreakMenuAnchor] = useState(null);
   const [breakReason, setBreakReason] = useState("");
 
@@ -93,76 +99,131 @@ const UniversalAppbar = ({ children }) => {
     { label: "Other", value: "other", color: "#6366f1" },
   ];
 
-  // Load timer from localStorage on mount
+  // SYNC: Fetch from backend every 5 minutes (Very low network usage)
   useEffect(() => {
-    const stored = localStorage.getItem("activeTime");
-    const storedToday = localStorage.getItem("todayActive");
-    if (stored) setActiveTime(parseInt(stored));
-    if (storedToday) setTodayActive(parseInt(storedToday));
-  }, []);
+    const syncWithBackend = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token || !agent) return;
 
-  // Format seconds to readable time (hh:mm:ss)
-  const formatTime = (seconds) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-      2,
-      "0"
-    )}:${String(secs).padStart(2, "0")}`;
-  };
+        const response = await fetch(`${API_URL}/api/v1/user/active-time`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
-  // Update timer every second when agent is active (NOT on break)
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status && data.data) {
+            // Backend is source of truth - correct the local time
+            const backendSeconds = data.data.activeTimeMinutes * 60;
+            setActiveSeconds(backendSeconds);
+            localStorage.setItem(
+              "activeTimerSeconds",
+              backendSeconds.toString()
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Background sync failed:", error);
+      }
+    };
+
+    syncWithBackend(); // Sync on mount
+    const interval = setInterval(syncWithBackend, 300000); // Sync every 5 minutes
+
+    return () => clearInterval(interval);
+  }, [agent]);
+
+  // Listen for socket events to update status in real-time
   useEffect(() => {
-    if (agent?.workStatus !== "active") return;
+    const socket = getQuerySocket();
+    if (!socket) return;
+
+    const handleStatusUpdate = () => {
+      console.log(
+        "🔄 Socket event received, refetching profile for status update..."
+      );
+      refetch();
+    };
+
+    socket.on("query-accepted", handleStatusUpdate);
+    socket.on("work-status-changed", handleStatusUpdate);
+
+    return () => {
+      socket.off("query-accepted", handleStatusUpdate);
+      socket.off("work-status-changed", handleStatusUpdate);
+    };
+  }, [refetch]);
+
+  // TICK: Increment every second & Save to LocalStorage (Real-time display)
+  useEffect(() => {
+    if (agent?.workStatus !== "active" && agent?.workStatus !== "busy") return;
 
     const interval = setInterval(() => {
-      setActiveTime((prev) => {
-        const newTime = prev + 1;
-        localStorage.setItem("activeTime", newTime.toString());
-        return newTime;
-      });
-      setTodayActive((prev) => {
-        const newTime = prev + 1;
-        localStorage.setItem("todayActive", newTime.toString());
-        return newTime;
+      setActiveSeconds((prev) => {
+        const newVal = prev + 1;
+        localStorage.setItem("activeTimerSeconds", newVal.toString());
+        return newVal;
       });
     }, 1000);
 
     return () => clearInterval(interval);
   }, [agent?.workStatus]);
 
-  // Listen for real-time status updates (e.g. from auto-reconnect)
-  useEffect(() => {
-    const socket = getSocket();
-
-    if (socket) {
-      const handleUserStatus = (data) => {
-        // If the update is for THIS user, refetch profile to update UI
-        if (data.userId === agent?._id) {
-          console.log(
-            "🔄 Received user-status update, refetching profile...",
-            data
-          );
-          refetch();
-        }
-      };
-
-      socket.on("user-status", handleUserStatus);
-
-      return () => {
-        socket.off("user-status", handleUserStatus);
-      };
-    }
-  }, [agent?._id, refetch]);
+  // Format seconds to HH:MM:SS
+  const formatTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+      2,
+      "0"
+    )}:${String(secs).padStart(2, "0")}`;
+  };
 
   // Handle break selection
   const handleBreakSelect = async (reason) => {
     try {
       setBreakReason(reason);
       setBreakMenuAnchor(null);
+
+      // First trigger the break
       const res = await toggleBreak().unwrap();
       toast.success(`Break started - ${reason}`);
+
+      // ✅ FIX: Immediately fetch accumulated time when GOING on break
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const response = await fetch(`${API_URL}/api/v1/user/active-time`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.status && data.data) {
+              const backendSeconds = data.data.activeTimeMinutes * 60;
+              setActiveSeconds(backendSeconds);
+              localStorage.setItem(
+                "activeTimerSeconds",
+                backendSeconds.toString()
+              );
+              console.log(
+                "✅ Fetched on break:",
+                data.data.activeTimeMinutes,
+                "minutes"
+              );
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch active time on break:", error);
+        }
+      }
+
       refetch();
     } catch (error) {
       toast.error("Failed to start break");
@@ -172,24 +233,42 @@ const UniversalAppbar = ({ children }) => {
   // Handle toggle (Check-in/Check-out)
   const handleToggle = async () => {
     try {
-      if (agent?.workStatus === "active" || agent?.workStatus === "busy") {
+      if (agent?.workStatus === "active") {
         // Show break options dropdown
         const button = document.getElementById("break-button");
         setBreakMenuAnchor(button);
       } else if (agent?.workStatus === "break") {
         // Resume from break - return to active
         const res = await toggleBreak().unwrap();
-        toast.success("✅ Checked in - Resumed from break");
+        toast.success("✅ Resumed from break");
         setBreakReason("");
-        refetch();
-      } else {
-        // First time - check in (or after check out)
-        // Reset timer when checking in
-        setActiveTime(0);
-        localStorage.setItem("activeTime", "0");
 
-        const res = await toggleBreak().unwrap();
-        toast.success("✅ Checked in successfully");
+        // ✅ FIX: Immediately fetch active time from backend when resuming
+        const token = localStorage.getItem("token");
+        if (token) {
+          try {
+            const response = await fetch(`${API_URL}/api/v1/user/active-time`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            });
+            if (response.ok) {
+              const data = await response.json();
+              if (data.status && data.data) {
+                const backendSeconds = data.data.activeTimeMinutes * 60;
+                setActiveSeconds(backendSeconds);
+                localStorage.setItem(
+                  "activeTimerSeconds",
+                  backendSeconds.toString()
+                );
+              }
+            }
+          } catch (error) {
+            console.error("Failed to fetch active time on resume:", error);
+          }
+        }
+
         refetch();
       }
     } catch (error) {
@@ -198,24 +277,9 @@ const UniversalAppbar = ({ children }) => {
   };
 
   // Handle check out (end of day)
-  const handleCheckOut = async () => {
-    try {
-      const res = await toggleBreak().unwrap();
-      toast.success("✅ Checked out - See you tomorrow!");
-      setBreakMenuAnchor(null);
-      setBreakReason("");
 
-      // Reset timer on check out
-      setActiveTime(0);
-      setTodayActive(0);
-      localStorage.setItem("activeTime", "0");
-      localStorage.setItem("todayActive", "0");
+  // Handle Check In
 
-      refetch();
-    } catch (error) {
-      toast.error("Failed to check out");
-    }
-  };
   useEffect(() => {
     setOpen(isLaptop);
   }, [isLaptop]);
@@ -253,6 +317,10 @@ const UniversalAppbar = ({ children }) => {
 
   const handleDrawerToggle = () => setOpen((prev) => !prev);
 
+  const handleSidebarWidthChange = (width) => {
+    setSidebarWidth(width);
+  };
+
   return (
     <Box
       sx={{
@@ -272,6 +340,7 @@ const UniversalAppbar = ({ children }) => {
         open={open}
         handleDrawerClose={() => setOpen(false)}
         role={role}
+        onSidebarWidthChange={handleSidebarWidthChange}
       />
 
       {/* Right Section - Header + Main Content, positioned after sidebar */}
@@ -281,8 +350,8 @@ const UniversalAppbar = ({ children }) => {
           flexDirection: "column",
           flex: 1,
           width: "100%",
-          marginLeft: open ? `${drawerWidth}px` : "64px",
-          transition: "margin-left 0.3s ease",
+          marginLeft: { xs: 0, lg: `${sidebarWidth}px` },
+          transition: "margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
         {/* AppBar - Full width of container */}
@@ -294,11 +363,12 @@ const UniversalAppbar = ({ children }) => {
           sx={{
             backgroundColor:
               theme.palette.mode === "light" ? "#ffffff" : "#030712",
-            width: `calc(100% - ${open ? drawerWidth : 64}px)`,
-            marginLeft: open ? `${drawerWidth}px` : "64px",
+            width: { xs: "100%", lg: `calc(100% - ${sidebarWidth}px)` },
+            marginLeft: { xs: 0, lg: `${sidebarWidth}px` },
             top: 0,
             zIndex: 10,
-            transition: "margin-left 0.3s ease, width 0.3s ease",
+            transition:
+              "margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         >
           <Toolbar
@@ -326,176 +396,175 @@ const UniversalAppbar = ({ children }) => {
               spacing={0.5}
               sx={{ flexShrink: 0 }}
             >
-              {/* ✅ Zoho-style Status Toggle with Timer and Status Display */}
-              <Stack
-                spacing={0.5}
-                alignItems={"center"}
-                direction={"row"}
-                sx={{ pr: 1, borderRight: "1px solid", borderColor: "divider" }}
+              {/* Timer Display */}
+              <Tooltip
+                title={`Total active time today: ${formatTime(activeSeconds)}`}
               >
-                {/* Status Label */}
-                <Tooltip title="Current work status">
-                  <Typography
-                    variant="caption"
-                    className="text-gray-700 dark:text-gray-300 whitespace-nowrap hidden sm:inline"
-                  >
-                    Status:
-                  </Typography>
-                </Tooltip>
-
-                {/* ON/OFF Toggle Button (Zoho Style) */}
-                <Tooltip
-                  title={
-                    agent?.workStatus === "active"
-                      ? "Click to take a break"
-                      : agent?.workStatus === "break"
-                      ? "Click to resume work"
-                      : "Click to check in"
-                  }
-                >
-                  <Box
-                    id="break-button"
-                    onClick={handleToggle}
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      px: 1.8,
-                      py: 0.1,
-                      borderRadius: "20px",
-                      backgroundColor:
-                        agent?.workStatus === "active" ? "#22c55e" : "#ef4444",
-                      color: "white",
-                      cursor: "pointer",
-                      transition: "all 0.3s ease",
-                      userSelect: "none",
-                      border: "2px solid",
-                      borderColor:
-                        agent?.workStatus === "active" ? "#16a34a" : "#dc2626",
-                      "&:hover": {
-                        transform: "scale(1.05)",
-                        boxShadow: `0 4px 12px ${
-                          agent?.workStatus === "active"
-                            ? "rgba(34, 197, 94, 0.4)"
-                            : "rgba(239, 68, 68, 0.4)"
-                        }`,
-                      },
-                    }}
-                  >
-                    {/* Status Indicator Dot */}
-                    <Box
-                      sx={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        backgroundColor: "white",
-                        animation: "pulse 2s infinite",
-                        "@keyframes pulse": {
-                          "0%, 100%": { opacity: 1 },
-                          "50%": { opacity: 0.6 },
-                        },
-                      }}
-                    />
-
-                    {/* Status Text */}
-                    <Typography
-                      sx={{
-                        fontWeight: "bold",
-                        fontSize: "0.85rem",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {agent?.workStatus === "active"
-                        ? "ON"
+                <Stack direction="row" alignItems="center" spacing={0.25}>
+                  <Clock
+                    size={14}
+                    className={
+                      agent?.workStatus === "active"
+                        ? "text-green-600 dark:text-green-400"
                         : agent?.workStatus === "busy"
-                        ? "BUSY"
-                        : agent?.workStatus === "break"
-                        ? "BREAK"
-                        : "OFF"}
-                    </Typography>
-                  </Box>
-                </Tooltip>
+                        ? "text-orange-600 dark:text-orange-400"
+                        : "text-red-600 dark:text-red-400"
+                    }
+                  />
+                  <Typography
+                    variant="caption"
+                    className={
+                      agent?.workStatus === "active"
+                        ? "text-green-600 dark:text-green-400"
+                        : agent?.workStatus === "busy"
+                        ? "text-orange-600 dark:text-orange-400"
+                        : "text-red-600 dark:text-red-400"
+                    }
+                    sx={{ fontSize: "0.75rem", fontWeight: "bold" }}
+                  >
+                    {formatTime(activeSeconds)}
+                  </Typography>
+                </Stack>
+              </Tooltip>
 
-                {/* Status Details */}
-                <Tooltip
-                  title={
+              {/* Status Toggle Switch */}
+              <Tooltip
+                title={
+                  agent?.workStatus === "active"
+                    ? "Active - Toggle to switch status"
+                    : agent?.workStatus === "busy"
+                    ? "Busy - Toggle to switch status"
+                    : "On Break - Toggle to switch status"
+                }
+              >
+                <Switch
+                  checked={agent?.workStatus === "active"}
+                  onChange={(e) => {
+                    if (e.target.checked && agent?.workStatus !== "active") {
+                      // Turn ON - Resume to Active
+                      handleToggle();
+                    } else if (!e.target.checked && agent?.workStatus === "active") {
+                      // Turn OFF - Go to Break
+                      const button = document.getElementById("break-button");
+                      setBreakMenuAnchor(button);
+                    }
+                  }}
+                  size="small"
+                  sx={{
+                    width: 36,
+                    height: 20,
+                    padding: 0,
+                    '& .MuiSwitch-switchBase': {
+                      padding: 0,
+                      margin: '2px',
+                      '&.Mui-checked': {
+                        transform: 'translateX(16px)',
+                        color: '#fff',
+                        '& + .MuiSwitch-track': {
+                          backgroundColor: '#22c55e',
+                          opacity: 1,
+                        },
+                      },
+                    },
+                    '& .MuiSwitch-thumb': {
+                      width: 16,
+                      height: 16,
+                    },
+                    '& .MuiSwitch-track': {
+                      borderRadius: 10,
+                      backgroundColor: '#ef4444',
+                      opacity: 1,
+                    },
+                  }}
+                />
+              </Tooltip>
+
+              {/* Status Button */}
+              <Tooltip
+                title={
+                  agent?.workStatus === "active"
+                    ? "Click to take a break"
+                    : agent?.workStatus === "busy"
+                    ? "You are currently busy"
+                    : "Click to resume work"
+                }
+              >
+                <Box
+                  id="break-button"
+                  onClick={
                     agent?.workStatus === "active"
-                      ? "Currently working"
+                      ? (e) => setBreakMenuAnchor(e.currentTarget)
                       : agent?.workStatus === "busy"
-                      ? "Busy with a query"
-                      : agent?.workStatus === "break"
-                      ? `On break${breakReason ? ` - ${breakReason}` : ""}`
-                      : "Not working"
+                      ? undefined
+                      : handleToggle
                   }
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: "20px",
+                    bgcolor:
+                      agent?.workStatus === "active"
+                        ? "rgba(34, 197, 94, 0.1)"
+                        : agent?.workStatus === "busy"
+                        ? "rgba(249, 115, 22, 0.1)"
+                        : "rgba(239, 68, 68, 0.1)",
+                    border: "1px solid",
+                    borderColor:
+                      agent?.workStatus === "active"
+                        ? "rgba(34, 197, 94, 0.2)"
+                        : agent?.workStatus === "busy"
+                        ? "rgba(249, 115, 22, 0.2)"
+                        : "rgba(239, 68, 68, 0.2)",
+                    cursor:
+                      agent?.workStatus === "busy" ? "default" : "pointer",
+                    transition: "all 0.2s",
+                    "&:hover": {
+                      bgcolor:
+                        agent?.workStatus === "active"
+                          ? "rgba(34, 197, 94, 0.2)"
+                          : agent?.workStatus === "busy"
+                          ? "rgba(249, 115, 22, 0.2)"
+                          : "rgba(239, 68, 68, 0.2)",
+                      transform:
+                        agent?.workStatus === "busy"
+                          ? "none"
+                          : "translateY(-1px)",
+                    },
+                  }}
                 >
+                  <Clock
+                    size={14}
+                    className={
+                      agent?.workStatus === "active"
+                        ? "text-green-600"
+                        : agent?.workStatus === "busy"
+                        ? "text-orange-600"
+                        : "text-red-600"
+                    }
+                  />
                   <Typography
                     variant="caption"
                     sx={{
-                      fontWeight: "600",
-                      fontSize: "0.8rem",
-                      px: 1,
-                      py: 0.25,
-                      borderRadius: "6px",
-                      backgroundColor:
-                        agent?.workStatus === "active"
-                          ? "rgba(34, 197, 94, 0.1)"
-                          : agent?.workStatus === "busy"
-                          ? "rgba(234, 179, 8, 0.1)" // Yellow/Amber for Busy
-                          : agent?.workStatus === "break"
-                          ? "rgba(239, 68, 68, 0.1)"
-                          : "rgba(107, 114, 128, 0.1)",
+                      fontWeight: 600,
                       color:
                         agent?.workStatus === "active"
-                          ? "#16a34a"
+                          ? "success.main"
                           : agent?.workStatus === "busy"
-                          ? "#ca8a04" // Darker yellow/amber text
-                          : agent?.workStatus === "break"
-                          ? "#dc2626"
-                          : "#6b7280",
+                          ? "warning.main"
+                          : "error.main",
                     }}
                   >
                     {agent?.workStatus === "active"
                       ? "Active"
                       : agent?.workStatus === "busy"
                       ? "Busy"
-                      : agent?.workStatus === "break"
-                      ? "On Break"
-                      : "Offline"}
+                      : "On Break"}
                   </Typography>
-                </Tooltip>
-
-                {/* Timer Display */}
-                {(agent?.workStatus === "active" ||
-                  agent?.workStatus === "break") && (
-                  <Tooltip
-                    title={`Total active time today: ${formatTime(
-                      todayActive
-                    )}`}
-                  >
-                    <Stack direction="row" alignItems="center" spacing={0.25}>
-                      <Clock
-                        size={14}
-                        className={
-                          agent?.workStatus === "active"
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-red-600 dark:text-red-400"
-                        }
-                      />
-                      <Typography
-                        variant="caption"
-                        className={
-                          agent?.workStatus === "active"
-                            ? "text-green-600 dark:text-green-400 font-mono whitespace-nowrap"
-                            : "text-red-600 dark:text-red-400 font-mono whitespace-nowrap"
-                        }
-                        sx={{ fontSize: "0.75rem", fontWeight: "bold" }}
-                      >
-                        {formatTime(activeTime)}
-                      </Typography>
-                    </Stack>
-                  </Tooltip>
-                )}
-              </Stack>
+                </Box>
+              </Tooltip>
 
               <Tooltip
                 title={
@@ -618,6 +687,9 @@ const UniversalAppbar = ({ children }) => {
         PaperProps={{
           sx: {
             minWidth: 220,
+            backgroundColor:
+              theme.palette.mode === "light" ? "#ffffff" : "#111827",
+            color: theme.palette.mode === "light" ? "#000000" : "#ffffff",
           },
         }}
       >
@@ -681,35 +753,6 @@ const UniversalAppbar = ({ children }) => {
               {option.label}
             </Box>
           ))}
-        </Box>
-
-        {/* Check Out Option */}
-        <Box
-          onClick={handleCheckOut}
-          sx={{
-            px: 2,
-            py: 1,
-            cursor: "pointer",
-            "&:hover": {
-              backgroundColor: "rgba(239, 68, 68, 0.1)",
-            },
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            fontSize: "0.9rem",
-            color: "#dc2626",
-            fontWeight: "500",
-          }}
-        >
-          <Box
-            sx={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              backgroundColor: "#dc2626",
-            }}
-          />
-          Check Out
         </Box>
       </Menu>
 

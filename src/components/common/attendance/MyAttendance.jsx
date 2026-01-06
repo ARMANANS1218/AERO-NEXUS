@@ -7,11 +7,42 @@ export default function MyAttendance() {
   const [attendance, setAttendance] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Get current month and year
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth(); // 0-11
+  const currentYear = currentDate.getFullYear();
+  
+  // Generate month options (last 12 months)
+  const generateMonthOptions = () => {
+    const options = [];
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(currentYear, currentMonth - i, 1);
+      const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const monthValue = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      options.push({ label: monthName, value: monthValue });
+    }
+    return options;
+  };
+
+  const [selectedMonth, setSelectedMonth] = useState(`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`);
   const [dateRange, setDateRange] = useState({
-    startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0]
+    startDate: new Date(currentYear, currentMonth, 1).toISOString().split('T')[0],
+    endDate: new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0]
   });
   const [selectedImage, setSelectedImage] = useState(null);
+
+  // Update date range when month changes
+  const handleMonthChange = (monthValue) => {
+    setSelectedMonth(monthValue);
+    const [year, month] = monthValue.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+    setDateRange({
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0]
+    });
+  };
 
   useEffect(() => {
     fetchMyAttendance();
@@ -107,7 +138,23 @@ export default function MyAttendance() {
 
       {/* Date Range Filter */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Select Month
+            </label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => handleMonthChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+            >
+              {generateMonthOptions().map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Start Date

@@ -1,21 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  X, Save, Search, User, Phone, Mail, MapPin, CreditCard, 
-  Calendar, FileText, Building, Hash, Globe, Edit2, ChevronLeft, ChevronRight, Plus,
-  History, Package, ExternalLink, Eye, AlertCircle, CheckCircle, Clock, XCircle
+import {
+  X,
+  Save,
+  Search,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  CreditCard,
+  Calendar,
+  FileText,
+  Building,
+  Hash,
+  Globe,
+  Edit2,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  History,
+  Package,
+  ExternalLink,
+  Eye,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  XCircle,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import Select from 'react-select';
 import { Country, State, City } from 'country-state-city';
 import { format } from 'date-fns';
 
-export default function CustomerDetailsPanel({ 
-  isOpen, 
-  onClose, 
+export default function CustomerDetailsPanel({
+  isOpen,
+  onClose,
   customerId = null,
   petitionId = null, // Current query petition ID
   queryCustomerInfo = null, // Info from query (name, email from widget)
-  onSave 
+  initialProfileImage = null, // Image from chat
+  onSave,
 }) {
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,7 +48,7 @@ export default function CustomerDetailsPanel({
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -50,7 +73,7 @@ export default function CustomerDetailsPanel({
     activationDate: '',
     deactivationDate: '',
     serviceStatus: 'Active',
-    notes: ''
+    notes: '',
   });
 
   // Edit Plan State
@@ -75,7 +98,7 @@ export default function CustomerDetailsPanel({
       type: '',
       number: '',
       issuedDate: '',
-      expiryDate: ''
+      expiryDate: '',
     },
     address: {
       street: '',
@@ -86,7 +109,7 @@ export default function CustomerDetailsPanel({
       countryCode: '',
       stateCode: '',
       postalCode: '',
-      landmark: ''
+      landmark: '',
     },
     planType: '',
     billingType: '',
@@ -94,17 +117,18 @@ export default function CustomerDetailsPanel({
     validityPeriod: '',
     activationDate: '',
     deactivationDate: '',
-    serviceStatus: 'Active'
+    serviceStatus: 'Active',
+    profileImage: '',
   };
 
   const [formData, setFormData] = useState(initialFormState);
 
   // Get all countries for dropdown
-  const countries = Country.getAllCountries().map(country => ({
+  const countries = Country.getAllCountries().map((country) => ({
     value: country.isoCode,
     label: country.name,
     name: country.name,
-    isoCode: country.isoCode
+    isoCode: country.isoCode,
   }));
 
   // Fetch query history for a customer
@@ -116,8 +140,8 @@ export default function CustomerDetailsPanel({
         `${import.meta.env.VITE_API_URL}/api/v1/customer/${targetCustomerId}/query-history`,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
         }
       );
       const data = await response.json();
@@ -130,7 +154,7 @@ export default function CustomerDetailsPanel({
       console.error('Failed to fetch query history:', error);
       toast.error('Failed to load query history');
     } finally {
-      setIsLoadingHistory(false); 
+      setIsLoadingHistory(false);
     }
   };
 
@@ -143,8 +167,8 @@ export default function CustomerDetailsPanel({
         `${import.meta.env.VITE_API_URL}/api/v1/customer/${targetCustomerId}/plan-history`,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
         }
       );
       const data = await response.json();
@@ -163,27 +187,27 @@ export default function CustomerDetailsPanel({
 
   // Add current query to customer
   const handleAddQueryToCustomer = async (targetCustomerId) => {
-    console.log('➕ Adding query to customer:', { customerId: targetCustomerId, petitionId });
+    console.log('➕ Adding query to customer:', {
+      customerId: targetCustomerId,
+      petitionId,
+    });
     if (!petitionId) {
       toast.error('No query to add');
       return;
     }
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/customer/add-query`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({
-            customerId: targetCustomerId,
-            petitionId
-          })
-        }
-      );
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/customer/add-query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          customerId: targetCustomerId,
+          petitionId,
+        }),
+      });
       const data = await response.json();
       console.log('➕ Add query response:', data);
       if (data.status) {
@@ -208,7 +232,13 @@ export default function CustomerDetailsPanel({
       return;
     }
 
-    if (!newPlan.planType || !newPlan.billingType || !newPlan.billingCycle || !newPlan.validityPeriod || !newPlan.activationDate) {
+    if (
+      !newPlan.planType ||
+      !newPlan.billingType ||
+      !newPlan.billingCycle ||
+      !newPlan.validityPeriod ||
+      !newPlan.activationDate
+    ) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -222,9 +252,9 @@ export default function CustomerDetailsPanel({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
-          body: JSON.stringify(newPlan)
+          body: JSON.stringify(newPlan),
         }
       );
       const data = await response.json();
@@ -239,7 +269,7 @@ export default function CustomerDetailsPanel({
           activationDate: '',
           deactivationDate: '',
           serviceStatus: 'Active',
-          notes: ''
+          notes: '',
         });
         fetchPlanHistory(targetId);
       } else {
@@ -255,24 +285,51 @@ export default function CustomerDetailsPanel({
   // Handle new plan form changes
   const handleNewPlanChange = (e) => {
     const { name, value } = e.target;
-    setNewPlan(prev => ({
+    setNewPlan((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   // Get status badge for query/plan status
   const getStatusBadge = (status) => {
     const badges = {
-      'Pending': { color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', icon: <Clock size={14} /> },
-      'Accepted': { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', icon: <CheckCircle size={14} /> },
-      'In Progress': { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200', icon: <AlertCircle size={14} /> },
-      'Resolved': { color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', icon: <CheckCircle size={14} /> },
-      'Expired': { color: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200', icon: <XCircle size={14} /> },
-      'Transferred': { color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200', icon: <AlertCircle size={14} /> },
-      'Active': { color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', icon: <CheckCircle size={14} /> },
-      'Inactive': { color: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200', icon: <XCircle size={14} /> },
-      'Suspended': { color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', icon: <AlertCircle size={14} /> },
+      Pending: {
+        color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+        icon: <Clock size={14} />,
+      },
+      Accepted: {
+        color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+        icon: <CheckCircle size={14} />,
+      },
+      'In Progress': {
+        color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+        icon: <AlertCircle size={14} />,
+      },
+      Resolved: {
+        color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+        icon: <CheckCircle size={14} />,
+      },
+      Expired: {
+        color: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200',
+        icon: <XCircle size={14} />,
+      },
+      Transferred: {
+        color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+        icon: <AlertCircle size={14} />,
+      },
+      Active: {
+        color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+        icon: <CheckCircle size={14} />,
+      },
+      Inactive: {
+        color: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200',
+        icon: <XCircle size={14} />,
+      },
+      Suspended: {
+        color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+        icon: <AlertCircle size={14} />,
+      },
     };
     return badges[status] || badges['Pending'];
   };
@@ -291,10 +348,14 @@ export default function CustomerDetailsPanel({
       billingType: plan.billingType,
       billingCycle: plan.billingCycle,
       validityPeriod: plan.validityPeriod,
-      activationDate: plan.activationDate ? new Date(plan.activationDate).toISOString().split('T')[0] : '',
-      deactivationDate: plan.deactivationDate ? new Date(plan.deactivationDate).toISOString().split('T')[0] : '',
+      activationDate: plan.activationDate
+        ? new Date(plan.activationDate).toISOString().split('T')[0]
+        : '',
+      deactivationDate: plan.deactivationDate
+        ? new Date(plan.deactivationDate).toISOString().split('T')[0]
+        : '',
       serviceStatus: plan.serviceStatus,
-      notes: plan.notes || ''
+      notes: plan.notes || '',
     });
   };
 
@@ -314,9 +375,9 @@ export default function CustomerDetailsPanel({
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
-          body: JSON.stringify(editPlanData)
+          body: JSON.stringify(editPlanData),
         }
       );
       const data = await response.json();
@@ -349,8 +410,8 @@ export default function CustomerDetailsPanel({
         {
           method: 'DELETE',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
         }
       );
       const data = await response.json();
@@ -370,9 +431,9 @@ export default function CustomerDetailsPanel({
   // Handle edit plan data change
   const handleEditPlanChange = (e) => {
     const { name, value } = e.target;
-    setEditPlanData(prev => ({
+    setEditPlanData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -400,24 +461,39 @@ export default function CustomerDetailsPanel({
   // Initialize with query customer info if available
   useEffect(() => {
     if (queryCustomerInfo && !customerId) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         name: queryCustomerInfo.name || '',
         email: queryCustomerInfo.email || '',
-        mobile: queryCustomerInfo.mobile || ''
+        mobile: queryCustomerInfo.mobile || '',
+        // profileImage is handled separately below to allow override
       }));
     }
   }, [queryCustomerInfo, customerId]);
 
+  // Handle profile image override from chat
+  // Handle profile image override from chat
+  // Handle profile image override from chat
+  useEffect(() => {
+    // Apply initialProfileImage if provided, regardless of whether it's a new or existing customer
+    // This allows overriding the profile image from chat for existing customers
+    if (initialProfileImage) {
+      setFormData((prev) => ({
+        ...prev,
+        profileImage: initialProfileImage,
+      }));
+    }
+  }, [initialProfileImage]);
+
   // Update states when country changes
   useEffect(() => {
     if (selectedCountry) {
-      const countryStates = State.getStatesOfCountry(selectedCountry.isoCode).map(state => ({
+      const countryStates = State.getStatesOfCountry(selectedCountry.isoCode).map((state) => ({
         value: state.isoCode,
         label: state.name,
         name: state.name,
         isoCode: state.isoCode,
-        countryCode: state.countryCode
+        countryCode: state.countryCode,
       }));
       setStates(countryStates);
       // Don't clear selections here - let change handlers manage that
@@ -432,11 +508,13 @@ export default function CustomerDetailsPanel({
   // Update cities when state changes
   useEffect(() => {
     if (selectedCountry && selectedState) {
-      const stateCities = City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode).map(city => ({
-        value: city.name,
-        label: city.name,
-        name: city.name
-      }));
+      const stateCities = City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode).map(
+        (city) => ({
+          value: city.name,
+          label: city.name,
+          name: city.name,
+        })
+      );
       setCities(stateCities);
       // Don't clear city selection here - let change handlers manage that
     } else {
@@ -454,7 +532,11 @@ export default function CustomerDetailsPanel({
 
   // Load query and plan history when tab changes
   useEffect(() => {
-    console.log('🔄 Tab or customer changed:', { activeTab, selectedCustomerId, customerId });
+    console.log('🔄 Tab or customer changed:', {
+      activeTab,
+      selectedCustomerId,
+      customerId,
+    });
     if (selectedCustomerId || customerId) {
       const targetId = selectedCustomerId || customerId;
       if (activeTab === 'queries') {
@@ -470,9 +552,10 @@ export default function CustomerDetailsPanel({
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/customer/${id}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
       });
+      console.log('response: ', response);
       const data = await response.json();
       // console.log('📦 Customer data received:', data.data);
       if (data.status) {
@@ -487,8 +570,12 @@ export default function CustomerDetailsPanel({
           governmentId: {
             type: customerData.governmentId?.type || '',
             number: customerData.governmentId?.number || '',
-            issuedDate: customerData.governmentId?.issuedDate ? customerData.governmentId.issuedDate.split('T')[0] : '',
-            expiryDate: customerData.governmentId?.expiryDate ? customerData.governmentId.expiryDate.split('T')[0] : ''
+            issuedDate: customerData.governmentId?.issuedDate
+              ? customerData.governmentId.issuedDate.split('T')[0]
+              : '',
+            expiryDate: customerData.governmentId?.expiryDate
+              ? customerData.governmentId.expiryDate.split('T')[0]
+              : '',
           },
           address: {
             street: customerData.address?.street || '',
@@ -499,47 +586,55 @@ export default function CustomerDetailsPanel({
             countryCode: customerData.address?.countryCode || '',
             stateCode: customerData.address?.stateCode || '',
             postalCode: customerData.address?.postalCode || '',
-            landmark: customerData.address?.landmark || ''
+            landmark: customerData.address?.landmark || '',
           },
           planType: customerData.planType || '',
           billingType: customerData.billingType || '',
           billingCycle: customerData.billingCycle || '',
           validityPeriod: customerData.validityPeriod || '',
-          activationDate: customerData.activationDate ? customerData.activationDate.split('T')[0] : '',
-          deactivationDate: customerData.deactivationDate ? customerData.deactivationDate.split('T')[0] : '',
-          serviceStatus: customerData.serviceStatus || 'Active'
+          activationDate: customerData.activationDate
+            ? customerData.activationDate.split('T')[0]
+            : '',
+          deactivationDate: customerData.deactivationDate
+            ? customerData.deactivationDate.split('T')[0]
+            : '',
+          serviceStatus: customerData.serviceStatus || 'Active',
+          // Use initialProfileImage if provided (override), otherwise use existing profile image
+          profileImage: initialProfileImage || customerData.profileImage || '',
         });
 
         // Set selected country, state, city for dropdowns
         let foundCountry = null;
         if (customerData.address?.countryCode) {
-          foundCountry = countries.find(c => c.isoCode === customerData.address.countryCode);
+          foundCountry = countries.find((c) => c.isoCode === customerData.address.countryCode);
         } else if (customerData.address?.country) {
           // Fallback: search by country name
-          foundCountry = countries.find(c => c.name.toLowerCase() === customerData.address.country.toLowerCase());
+          foundCountry = countries.find(
+            (c) => c.name.toLowerCase() === customerData.address.country.toLowerCase()
+          );
         }
-        
+
         if (foundCountry) {
           setSelectedCountry(foundCountry);
-          
+
           // Load states for this country
-          const countryStates = State.getStatesOfCountry(foundCountry.isoCode).map(state => ({
+          const countryStates = State.getStatesOfCountry(foundCountry.isoCode).map((state) => ({
             value: state.isoCode,
             label: state.name,
             name: state.name,
             isoCode: state.isoCode,
-            countryCode: state.countryCode
+            countryCode: state.countryCode,
           }));
           setStates(countryStates);
-          
+
           // Update form data with country code if it was missing
           if (!customerData.address.countryCode) {
-            setFormData(prev => ({
+            setFormData((prev) => ({
               ...prev,
               address: {
                 ...prev.address,
-                countryCode: foundCountry.isoCode
-              }
+                countryCode: foundCountry.isoCode,
+              },
             }));
           }
         }
@@ -548,55 +643,60 @@ export default function CustomerDetailsPanel({
           let foundState = null;
           const countryCode = foundCountry.isoCode;
           const statesList = State.getStatesOfCountry(countryCode);
-          
+
           // console.log('🗺️ Loading state for country:', countryCode);
           // console.log('📍 Customer state data:', customerData.address?.state, 'Code:', customerData.address?.stateCode);
           // console.log('📋 Available states:', statesList.map(s => s.name));
-          
+
           if (customerData.address?.stateCode) {
-            foundState = statesList.find(s => s.isoCode === customerData.address.stateCode);
+            foundState = statesList.find((s) => s.isoCode === customerData.address.stateCode);
             // console.log('🔍 Found state by code:', foundState?.name);
           } else if (customerData.address?.state) {
             // Try exact match first
-            foundState = statesList.find(s => s.name.toLowerCase() === customerData.address.state.toLowerCase());
-            
+            foundState = statesList.find(
+              (s) => s.name.toLowerCase() === customerData.address.state.toLowerCase()
+            );
+
             // If not found, try partial match
             if (!foundState) {
-              foundState = statesList.find(s => 
-                s.name.toLowerCase().includes(customerData.address.state.toLowerCase()) ||
-                customerData.address.state.toLowerCase().includes(s.name.toLowerCase())
+              foundState = statesList.find(
+                (s) =>
+                  s.name.toLowerCase().includes(customerData.address.state.toLowerCase()) ||
+                  customerData.address.state.toLowerCase().includes(s.name.toLowerCase())
               );
             }
             // console.log('🔍 Found state by name:', foundState?.name);
           }
-          
+
           if (foundState) {
             const stateObj = {
               value: foundState.isoCode,
               label: foundState.name,
               name: foundState.name,
               isoCode: foundState.isoCode,
-              countryCode: foundState.countryCode
+              countryCode: foundState.countryCode,
             };
             setSelectedState(stateObj);
-            
+
             // Load cities for this state
-            const stateCities = City.getCitiesOfState(countryCode, foundState.isoCode).map(city => ({
-              value: city.name,
-              label: city.name,
-              name: city.name
-            }));
+            const stateCities = City.getCitiesOfState(countryCode, foundState.isoCode).map(
+              (city) => ({
+                value: city.name,
+                label: city.name,
+                name: city.name,
+              })
+            );
             setCities(stateCities);
             // console.log('🏙️ Loaded cities:', stateCities.length, 'cities');
-            
+
             // Update form data with state code if it was missing
             if (!customerData.address.stateCode) {
-              setFormData(prev => ({
+              setFormData((prev) => ({
                 ...prev,
                 address: {
                   ...prev.address,
-                  stateCode: foundState.isoCode
-                }
+                  stateCode: foundState.isoCode,
+                },
               }));
             }
           } else {
@@ -607,7 +707,7 @@ export default function CustomerDetailsPanel({
           setSelectedCity({
             value: customerData.address.city,
             label: customerData.address.city,
-            name: customerData.address.city
+            name: customerData.address.city,
           });
         }
       }
@@ -620,11 +720,13 @@ export default function CustomerDetailsPanel({
     setIsLoadingList(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/customer/list?page=${currentPage}&limit=${itemsPerPage}`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/v1/customer/list?page=${currentPage}&limit=${itemsPerPage}`,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
         }
       );
       const data = await response.json();
@@ -649,11 +751,13 @@ export default function CustomerDetailsPanel({
     setIsSearching(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/customer/search?q=${encodeURIComponent(searchQuery)}`,
+        `${import.meta.env.VITE_API_URL}/api/v1/customer/search?q=${encodeURIComponent(
+          searchQuery
+        )}`,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
         }
       );
       const data = await response.json();
@@ -685,8 +789,12 @@ export default function CustomerDetailsPanel({
       governmentId: {
         type: customer.governmentId?.type || '',
         number: customer.governmentId?.number || '',
-        issuedDate: customer.governmentId?.issuedDate ? customer.governmentId.issuedDate.split('T')[0] : '',
-        expiryDate: customer.governmentId?.expiryDate ? customer.governmentId.expiryDate.split('T')[0] : ''
+        issuedDate: customer.governmentId?.issuedDate
+          ? customer.governmentId.issuedDate.split('T')[0]
+          : '',
+        expiryDate: customer.governmentId?.expiryDate
+          ? customer.governmentId.expiryDate.split('T')[0]
+          : '',
       },
       address: {
         street: customer.address?.street || '',
@@ -697,7 +805,7 @@ export default function CustomerDetailsPanel({
         countryCode: customer.address?.countryCode || '',
         stateCode: customer.address?.stateCode || '',
         postalCode: customer.address?.postalCode || '',
-        landmark: customer.address?.landmark || ''
+        landmark: customer.address?.landmark || '',
       },
       planType: customer.planType || '',
       billingType: customer.billingType || '',
@@ -705,28 +813,32 @@ export default function CustomerDetailsPanel({
       validityPeriod: customer.validityPeriod || '',
       activationDate: customer.activationDate ? customer.activationDate.split('T')[0] : '',
       deactivationDate: customer.deactivationDate ? customer.deactivationDate.split('T')[0] : '',
-      serviceStatus: customer.serviceStatus || 'Active'
+      serviceStatus: customer.serviceStatus || 'Active',
+      // Use existing profile image, or fallback to the one from chat if none exists
+      profileImage: customer.profileImage || initialProfileImage || '',
     });
 
     // Set selected country, state, city for dropdowns
     let foundCountry = null;
     if (customer.address?.countryCode) {
-      foundCountry = countries.find(c => c.isoCode === customer.address.countryCode);
+      foundCountry = countries.find((c) => c.isoCode === customer.address.countryCode);
     } else if (customer.address?.country) {
       // Fallback: search by country name
-      foundCountry = countries.find(c => c.name.toLowerCase() === customer.address.country.toLowerCase());
+      foundCountry = countries.find(
+        (c) => c.name.toLowerCase() === customer.address.country.toLowerCase()
+      );
     }
-    
+
     if (foundCountry) {
       setSelectedCountry(foundCountry);
-      
+
       // Load states for this country
-      const countryStates = State.getStatesOfCountry(foundCountry.isoCode).map(state => ({
+      const countryStates = State.getStatesOfCountry(foundCountry.isoCode).map((state) => ({
         value: state.isoCode,
         label: state.name,
         name: state.name,
         isoCode: state.isoCode,
-        countryCode: state.countryCode
+        countryCode: state.countryCode,
       }));
       setStates(countryStates);
     }
@@ -735,43 +847,46 @@ export default function CustomerDetailsPanel({
       let foundState = null;
       const countryCode = foundCountry.isoCode;
       const statesList = State.getStatesOfCountry(countryCode);
-      
+
       // console.log('🗺️ Loading state for country:', countryCode);
       // console.log('📍 Customer state data:', customer.address?.state, 'Code:', customer.address?.stateCode);
       // console.log('📋 Available states:', statesList.map(s => s.name));
-      
+
       if (customer.address?.stateCode) {
-        foundState = statesList.find(s => s.isoCode === customer.address.stateCode);
+        foundState = statesList.find((s) => s.isoCode === customer.address.stateCode);
         // console.log('🔍 Found state by code:', foundState?.name);
       } else if (customer.address?.state) {
         // Try exact match first
-        foundState = statesList.find(s => s.name.toLowerCase() === customer.address.state.toLowerCase());
-        
+        foundState = statesList.find(
+          (s) => s.name.toLowerCase() === customer.address.state.toLowerCase()
+        );
+
         // If not found, try partial match
         if (!foundState) {
-          foundState = statesList.find(s => 
-            s.name.toLowerCase().includes(customer.address.state.toLowerCase()) ||
-            customer.address.state.toLowerCase().includes(s.name.toLowerCase())
+          foundState = statesList.find(
+            (s) =>
+              s.name.toLowerCase().includes(customer.address.state.toLowerCase()) ||
+              customer.address.state.toLowerCase().includes(s.name.toLowerCase())
           );
         }
         // console.log('🔍 Found state by name:', foundState?.name);
       }
-      
+
       if (foundState) {
         const stateObj = {
           value: foundState.isoCode,
           label: foundState.name,
           name: foundState.name,
           isoCode: foundState.isoCode,
-          countryCode: foundState.countryCode
+          countryCode: foundState.countryCode,
         };
         setSelectedState(stateObj);
-        
+
         // Load cities for this state
-        const stateCities = City.getCitiesOfState(countryCode, foundState.isoCode).map(city => ({
+        const stateCities = City.getCitiesOfState(countryCode, foundState.isoCode).map((city) => ({
           value: city.name,
           label: city.name,
-          name: city.name
+          name: city.name,
         }));
         setCities(stateCities);
         // console.log('🏙️ Loaded cities:', stateCities.length, 'cities');
@@ -783,7 +898,7 @@ export default function CustomerDetailsPanel({
       setSelectedCity({
         value: customer.address.city,
         label: customer.address.city,
-        name: customer.address.city
+        name: customer.address.city,
       });
     }
 
@@ -795,7 +910,7 @@ export default function CustomerDetailsPanel({
   // Handle country selection
   const handleCountryChange = (selectedOption) => {
     setSelectedCountry(selectedOption);
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       address: {
         ...prev.address,
@@ -803,41 +918,41 @@ export default function CustomerDetailsPanel({
         countryCode: selectedOption?.isoCode || '',
         state: '',
         stateCode: '',
-        city: ''
-      }
+        city: '',
+      },
     }));
   };
 
   // Handle state selection
   const handleStateChange = (selectedOption) => {
     setSelectedState(selectedOption);
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       address: {
         ...prev.address,
         state: selectedOption?.name || '',
         stateCode: selectedOption?.isoCode || '',
-        city: ''
-      }
+        city: '',
+      },
     }));
   };
 
   // Handle city selection
   const handleCityChange = (selectedOption) => {
     setSelectedCity(selectedOption);
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       address: {
         ...prev.address,
-        city: selectedOption?.name || ''
-      }
+        city: selectedOption?.name || '',
+      },
     }));
   };
 
   // Validate pincode based on country
   const validatePostalCode = (postalCode, countryCode) => {
     if (!postalCode) return true; // Optional field
-    
+
     const patterns = {
       IN: /^[1-9][0-9]{5}$/, // India: 6 digits
       US: /^[0-9]{5}(-[0-9]{4})?$/, // USA: 5 or 5+4 digits
@@ -855,7 +970,7 @@ export default function CustomerDetailsPanel({
     if (pattern) {
       return pattern.test(postalCode);
     }
-    
+
     // Default: allow alphanumeric and spaces
     return /^[A-Z0-9\s-]{3,10}$/i.test(postalCode);
   };
@@ -870,40 +985,40 @@ export default function CustomerDetailsPanel({
       minHeight: '38px',
       boxShadow: state.isFocused ? '0 0 0 1px #0d9488' : 'none',
       '&:hover': {
-        borderColor: '#0d9488'
-      }
+        borderColor: '#0d9488',
+      },
     }),
     menu: (base) => ({
       ...base,
       backgroundColor: 'var(--select-bg)',
       border: '1px solid var(--select-border)',
-      zIndex: 9999
+      zIndex: 9999,
     }),
     option: (base, state) => ({
       ...base,
-      backgroundColor: state.isSelected 
-        ? '#0d9488' 
-        : state.isFocused 
-        ? 'var(--select-hover)' 
+      backgroundColor: state.isSelected
+        ? '#0d9488'
+        : state.isFocused
+        ? 'var(--select-hover)'
         : 'transparent',
       color: state.isSelected ? 'white' : 'var(--select-text)',
       cursor: 'pointer',
       '&:active': {
-        backgroundColor: '#0f766e'
-      }
+        backgroundColor: '#0f766e',
+      },
     }),
     singleValue: (base) => ({
       ...base,
-      color: 'var(--select-text)'
+      color: 'var(--select-text)',
     }),
     input: (base) => ({
       ...base,
-      color: 'var(--select-text)'
+      color: 'var(--select-text)',
     }),
     placeholder: (base) => ({
       ...base,
-      color: 'var(--select-placeholder)'
-    })
+      color: 'var(--select-placeholder)',
+    }),
   };
 
   const handleSave = async () => {
@@ -918,16 +1033,16 @@ export default function CustomerDetailsPanel({
       const url = isUpdate
         ? `${import.meta.env.VITE_API_URL}/api/v1/customer/${customerId || selectedCustomerId}`
         : `${import.meta.env.VITE_API_URL}/api/v1/customer/create`;
-      
+
       const method = isUpdate ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
@@ -957,17 +1072,17 @@ export default function CustomerDetailsPanel({
     const { name, value } = e.target;
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         [parent]: {
           ...prev[parent],
-          [child]: value
-        }
+          [child]: value,
+        },
       }));
     } else {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        [name]: value
+        [name]: value,
       }));
     }
   };
@@ -997,16 +1112,13 @@ export default function CustomerDetailsPanel({
         <div className="flex items-center gap-2">
           <User size={20} />
           <h3 className="font-semibold text-lg">
-            {isSearchMode 
-              ? 'Search Customers' 
-              : isEditMode 
-                ? 'Edit Customer' 
-                : selectedCustomerId 
-                  ? 'Customer Details' 
-                  : queryCustomerInfo || isCreatingNew
-                    ? 'Create Customer ID'
-                    : 'Customer List'
-            }
+            {isSearchMode
+              ? 'Search Customers'
+              : isEditMode || selectedCustomerId || customerId
+              ? 'Update Customer'
+              : queryCustomerInfo || isCreatingNew
+              ? 'Create Customer'
+              : 'Customer List'}
           </h3>
         </div>
         <div className="flex items-center gap-2">
@@ -1038,10 +1150,7 @@ export default function CustomerDetailsPanel({
               <Search size={18} />
             </button>
           )}
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-teal-800 rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-teal-800 rounded-lg transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -1139,7 +1248,9 @@ export default function CustomerDetailsPanel({
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">{customer.name}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">{customer.email}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{customer.mobile}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {customer.mobile}
+                        </p>
                       </div>
                       {customer.customerId && (
                         <span className="px-2 py-1 bg-teal-100 dark:bg-gray-950 text-teal-800 dark:text-teal-200 text-xs rounded">
@@ -1170,20 +1281,20 @@ export default function CustomerDetailsPanel({
                   Create New
                 </button>
                 <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600 dark:text-gray-400">Per page:</label>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
-                >
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-              </div>
+                  <label className="text-sm text-gray-600 dark:text-gray-400">Per page:</label>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                  >
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -1203,7 +1314,9 @@ export default function CustomerDetailsPanel({
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">{customer.name}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">{customer.email}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{customer.mobile}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {customer.mobile}
+                        </p>
                       </div>
                       {customer.customerId && (
                         <span className="px-2 py-1 bg-teal-100 dark:bg-gray-950 text-teal-800 dark:text-teal-200 text-xs rounded">
@@ -1224,11 +1337,13 @@ export default function CustomerDetailsPanel({
             {totalCustomers > 0 && (
               <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalCustomers)} of {totalCustomers} customers
+                  Showing {(currentPage - 1) * itemsPerPage + 1} -{' '}
+                  {Math.min(currentPage * itemsPerPage, totalCustomers)} of {totalCustomers}{' '}
+                  customers
                 </p>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
                     className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 flex items-center gap-1"
                   >
@@ -1239,7 +1354,11 @@ export default function CustomerDetailsPanel({
                     Page {currentPage} of {Math.ceil(totalCustomers / itemsPerPage)}
                   </span>
                   <button
-                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalCustomers / itemsPerPage), prev + 1))}
+                    onClick={() =>
+                      setCurrentPage((prev) =>
+                        Math.min(Math.ceil(totalCustomers / itemsPerPage), prev + 1)
+                      )
+                    }
                     disabled={currentPage >= Math.ceil(totalCustomers / itemsPerPage)}
                     className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300 flex items-center gap-1"
                   >
@@ -1258,7 +1377,33 @@ export default function CustomerDetailsPanel({
                 <User size={18} />
                 Basic Information
               </h4>
-              
+
+              {/* Profile Image Display */}
+              <div className="flex justify-center mb-6">
+                <div className="relative group">
+                  <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 flex items-center justify-center shadow-sm">
+                    {formData.profileImage ? (
+                      <img
+                        src={formData.profileImage}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          // e.target.src = ''; // Keep broken image or fallback?
+                          // Better to hide image and show icon if broken
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'block';
+                        }}
+                      />
+                    ) : (
+                      <User size={40} className="text-gray-400 dark:text-gray-500" />
+                    )}
+                    {/* Fallback icon if image hidden via onError */}
+                    <User size={40} className="text-gray-400 dark:text-gray-500 absolute hidden" />
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1272,11 +1417,13 @@ export default function CustomerDetailsPanel({
                     placeholder="Auto-generated (BM/8-digits/YY)"
                     readOnly={selectedCustomerId && !isEditMode}
                     className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm ${
-                      selectedCustomerId && !isEditMode ? 'bg-gray-100 dark:bg-gray-950 cursor-not-allowed' : 'bg-white dark:bg-gray-950'
+                      selectedCustomerId && !isEditMode
+                        ? 'bg-gray-100 dark:bg-gray-950 cursor-not-allowed'
+                        : 'bg-white dark:bg-gray-950'
                     }`}
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Name <span className="text-red-500">*</span>
@@ -1306,7 +1453,7 @@ export default function CustomerDetailsPanel({
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Mobile <span className="text-red-500">*</span>
@@ -1324,7 +1471,7 @@ export default function CustomerDetailsPanel({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Alternate Phone
+                  Alternate Phone <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="tel"
@@ -1342,11 +1489,11 @@ export default function CustomerDetailsPanel({
                 <FileText size={18} />
                 Government ID
               </h4>
-              
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    ID Type
+                    ID Type <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="governmentId.type"
@@ -1357,14 +1504,13 @@ export default function CustomerDetailsPanel({
                     <option value="">Select Type</option>
                     <option value="Driving License">Driving License</option>
                     <option value="Passport">Passport</option>
-                    <option value="Aadhaar">Aadhaar</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    ID Number
+                    ID Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1379,7 +1525,7 @@ export default function CustomerDetailsPanel({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Issued Date
+                    Issued Date <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -1389,10 +1535,10 @@ export default function CustomerDetailsPanel({
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Expiry Date
+                    Expiry Date <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -1411,10 +1557,10 @@ export default function CustomerDetailsPanel({
                 <MapPin size={18} />
                 Address
               </h4>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Street / Building Address
+                  Street / Building Address <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1429,7 +1575,7 @@ export default function CustomerDetailsPanel({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Country
+                    Country <span className="text-red-500">*</span>
                   </label>
                   <Select
                     value={selectedCountry}
@@ -1442,16 +1588,16 @@ export default function CustomerDetailsPanel({
                     className="text-sm"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    State / Province
+                    State / Province <span className="text-red-500">*</span>
                   </label>
                   <Select
                     value={selectedState}
                     onChange={handleStateChange}
                     options={states}
-                    placeholder={selectedCountry ? "Select State" : "Select Country First"}
+                    placeholder={selectedCountry ? 'Select State' : 'Select Country First'}
                     isClearable
                     isSearchable
                     isDisabled={!selectedCountry}
@@ -1464,13 +1610,13 @@ export default function CustomerDetailsPanel({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    City
+                    City <span className="text-red-500">*</span>
                   </label>
                   <Select
                     value={selectedCity}
                     onChange={handleCityChange}
                     options={cities}
-                    placeholder={selectedState ? "Select City" : "Select State First"}
+                    placeholder={selectedState ? 'Select City' : 'Select State First'}
                     isClearable
                     isSearchable
                     isDisabled={!selectedState}
@@ -1478,10 +1624,10 @@ export default function CustomerDetailsPanel({
                     className="text-sm"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Postal / ZIP Code
+                    Postal / ZIP Code <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1491,17 +1637,23 @@ export default function CustomerDetailsPanel({
                       handleChange(e);
                       const isValid = validatePostalCode(e.target.value, selectedCountry?.isoCode);
                       if (e.target.value && !isValid) {
-                        e.target.setCustomValidity('Invalid postal code format for selected country');
+                        e.target.setCustomValidity(
+                          'Invalid postal code format for selected country'
+                        );
                       } else {
                         e.target.setCustomValidity('');
                       }
                     }}
                     placeholder={
-                      selectedCountry?.isoCode === 'IN' ? 'e.g., 110001' :
-                      selectedCountry?.isoCode === 'US' ? 'e.g., 10001' :
-                      selectedCountry?.isoCode === 'GB' ? 'e.g., SW1A 1AA' :
-                      selectedCountry?.isoCode === 'CA' ? 'e.g., K1A 0B1' :
-                      'Enter postal code'
+                      selectedCountry?.isoCode === 'IN'
+                        ? 'e.g., 110001'
+                        : selectedCountry?.isoCode === 'US'
+                        ? 'e.g., 10001'
+                        : selectedCountry?.isoCode === 'GB'
+                        ? 'e.g., SW1A 1AA'
+                        : selectedCountry?.isoCode === 'CA'
+                        ? 'e.g., K1A 0B1'
+                        : 'Enter postal code'
                     }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
@@ -1516,7 +1668,7 @@ export default function CustomerDetailsPanel({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Locality / Area
+                    Locality / Area <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1527,10 +1679,10 @@ export default function CustomerDetailsPanel({
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Landmark
+                    Landmark <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1549,11 +1701,11 @@ export default function CustomerDetailsPanel({
                 <CreditCard size={18} />
                 Service & Billing
               </h4>
-              
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Plan Type
+                    Plan Type <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1564,10 +1716,10 @@ export default function CustomerDetailsPanel({
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Billing Type
+                    Billing Type <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="billingType"
@@ -1585,7 +1737,7 @@ export default function CustomerDetailsPanel({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Billing Cycle
+                    Billing Cycle <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="billingCycle"
@@ -1600,10 +1752,10 @@ export default function CustomerDetailsPanel({
                     <option value="Yearly">Yearly</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Validity Period
+                    Validity Period <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1619,7 +1771,7 @@ export default function CustomerDetailsPanel({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Activation Date
+                    Activation Date <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -1629,10 +1781,10 @@ export default function CustomerDetailsPanel({
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Deactivation Date
+                    Deactivation Date <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -1646,7 +1798,7 @@ export default function CustomerDetailsPanel({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Service Status
+                  Service Status <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="serviceStatus"
@@ -1694,14 +1846,20 @@ export default function CustomerDetailsPanel({
                             <span className="font-semibold text-gray-900 dark:text-white">
                               {query.petitionId}
                             </span>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${statusBadge.color}`}>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${statusBadge.color}`}
+                            >
                               {statusBadge.icon}
                               {query.status}
                             </span>
                           </div>
                           <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                            <div><strong>Subject:</strong> {query.subject || 'N/A'}</div>
-                            <div><strong>Category:</strong> {query.category} • {query.subcategory}</div>
+                            <div>
+                              <strong>Subject:</strong> {query.subject || 'N/A'}
+                            </div>
+                            <div>
+                              <strong>Category:</strong> {query.category} • {query.subcategory}
+                            </div>
                             {query.description && (
                               <div className="mt-2 text-xs line-clamp-2">
                                 <strong>Description:</strong> {query.description}
@@ -1713,7 +1871,7 @@ export default function CustomerDetailsPanel({
                           onClick={() => {
                             const pathParts = window.location.pathname.split('/');
                             const baseUrl = `${window.location.origin}/${pathParts[1]}/${pathParts[2]}/${pathParts[3]}`;
-                            window.open(`${baseUrl}/query/${query.petitionId || query._id}`, '_blank');
+                            window.open(`${baseUrl}/${query.petitionId || query._id}`, '_blank');
                           }}
                           className="ml-2 p-2 text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950 rounded-lg transition-colors"
                           title="View Query"
@@ -1726,11 +1884,7 @@ export default function CustomerDetailsPanel({
                         <div>
                           Created: {format(new Date(query.createdAt), 'dd MMM yyyy, hh:mm a')}
                         </div>
-                        {query.assignedTo && (
-                          <div>
-                            Assigned: {query.assignedTo.name}
-                          </div>
-                        )}
+                        {query.assignedTo && <div>Assigned: {query.assignedTo.name}</div>}
                       </div>
                     </div>
                   );
@@ -1894,7 +2048,7 @@ export default function CustomerDetailsPanel({
                         activationDate: '',
                         deactivationDate: '',
                         serviceStatus: 'Active',
-                        notes: ''
+                        notes: '',
                       });
                     }}
                     className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
@@ -1921,223 +2075,231 @@ export default function CustomerDetailsPanel({
                   const isActivePlan = index === 0; // Most recent is on top
                   const statusBadge = getStatusBadge(plan.serviceStatus);
                   const isEditing = editingPlanId === plan._id;
-                  
+
                   return (
                     <React.Fragment key={plan._id}>
-                    <div
-                      key={plan._id}
-                      className={`p-4 border-2 rounded-lg transition-shadow bg-white dark:bg-gray-950 ${
-                        isActivePlan && !isExpired
-                          ? 'border-green-500'
-                          : isExpired || plan.serviceStatus === 'Suspended' || plan.serviceStatus === 'Inactive'
-                          ? 'border-red-500'
-                          : 'border-gray-200 dark:border-gray-700'
-                      } hover:shadow-md`}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h5 className="font-semibold text-gray-900 dark:text-white">
-                              {plan.planType}
-                            </h5>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${statusBadge.color}`}>
-                              {statusBadge.icon}
-                              {plan.serviceStatus}
-                            </span>
-                            {isActivePlan && !isExpired && (
-                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-600 text-white">
-                                Current Plan
+                      <div
+                        key={plan._id}
+                        className={`p-4 border-2 rounded-lg transition-shadow bg-white dark:bg-gray-950 ${
+                          isActivePlan && !isExpired
+                            ? 'border-green-500'
+                            : isExpired ||
+                              plan.serviceStatus === 'Suspended' ||
+                              plan.serviceStatus === 'Inactive'
+                            ? 'border-red-500'
+                            : 'border-gray-200 dark:border-gray-700'
+                        } hover:shadow-md`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h5 className="font-semibold text-gray-900 dark:text-white">
+                                {plan.planType}
+                              </h5>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${statusBadge.color}`}
+                              >
+                                {statusBadge.icon}
+                                {plan.serviceStatus}
                               </span>
-                            )}
-                            {isExpired && (
-                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-600 text-white">
-                                Expired
-                              </span>
-                            )}
+                              {isActivePlan && !isExpired && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-600 text-white">
+                                  Current Plan
+                                </span>
+                              )}
+                              {isExpired && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-600 text-white">
+                                  Expired
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                              <div>
+                                {plan.billingType} • {plan.billingCycle}
+                              </div>
+                              <div>Validity: {plan.validityPeriod}</div>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                            <div>{plan.billingType} • {plan.billingCycle}</div>
-                            <div>Validity: {plan.validityPeriod}</div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleEditPlan(plan)}
+                              className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 rounded transition-colors"
+                              title="Edit Plan"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePlan(plan._id)}
+                              disabled={isDeletingPlan}
+                              className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 rounded transition-colors disabled:opacity-50"
+                              title="Delete Plan"
+                            >
+                              <X size={14} />
+                            </button>
                           </div>
                         </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleEditPlan(plan)}
-                            className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 rounded transition-colors"
-                            title="Edit Plan"
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleDeletePlan(plan._id)}
-                            disabled={isDeletingPlan}
-                            className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 rounded transition-colors disabled:opacity-50"
-                            title="Delete Plan"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400 mb-2">
-                        <div>
-                          <span className="font-medium">Activation:</span> {format(new Date(plan.activationDate), 'dd MMM yyyy')}
-                        </div>
-                        {plan.deactivationDate && (
+
+                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400 mb-2">
                           <div>
-                            <span className="font-medium">Deactivation:</span> {format(new Date(plan.deactivationDate), 'dd MMM yyyy')}
+                            <span className="font-medium">Activation:</span>{' '}
+                            {format(new Date(plan.activationDate), 'dd MMM yyyy')}
+                          </div>
+                          {plan.deactivationDate && (
+                            <div>
+                              <span className="font-medium">Deactivation:</span>{' '}
+                              {format(new Date(plan.deactivationDate), 'dd MMM yyyy')}
+                            </div>
+                          )}
+                        </div>
+
+                        {plan.notes && (
+                          <div className="mt-2 p-2 bg-gray-100 dark:bg-slate-950 rounded text-xs text-gray-700 dark:text-gray-300">
+                            {plan.notes}
                           </div>
                         )}
+
+                        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          Added: {format(new Date(plan.addedAt), 'dd MMM yyyy, hh:mm a')}
+                          {plan.addedBy && ` by ${plan.addedBy.name}`}
+                        </div>
                       </div>
-                      
-                      {plan.notes && (
-                        <div className="mt-2 p-2 bg-gray-100 dark:bg-slate-950 rounded text-xs text-gray-700 dark:text-gray-300">
-                          {plan.notes}
+
+                      {/* Edit Plan Form */}
+                      {isEditing && editPlanData && (
+                        <div className="p-4 border border-blue-500 rounded-lg bg-blue-50 dark:bg-blue-950 space-y-3 mt-2">
+                          <h5 className="font-semibold text-gray-900 dark:text-white">Edit Plan</h5>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Plan Type <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                name="planType"
+                                value={editPlanData.planType}
+                                onChange={handleEditPlanChange}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Billing Type <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                name="billingType"
+                                value={editPlanData.billingType}
+                                onChange={handleEditPlanChange}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                              >
+                                <option value="">Select...</option>
+                                <option value="Prepaid">Prepaid</option>
+                                <option value="Postpaid">Postpaid</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Billing Cycle <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                name="billingCycle"
+                                value={editPlanData.billingCycle}
+                                onChange={handleEditPlanChange}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                              >
+                                <option value="">Select...</option>
+                                <option value="Monthly">Monthly</option>
+                                <option value="Quarterly">Quarterly</option>
+                                <option value="Half-Yearly">Half-Yearly</option>
+                                <option value="Yearly">Yearly</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Validity Period <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                name="validityPeriod"
+                                value={editPlanData.validityPeriod}
+                                onChange={handleEditPlanChange}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Activation Date <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="date"
+                                name="activationDate"
+                                value={editPlanData.activationDate}
+                                onChange={handleEditPlanChange}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Deactivation Date
+                              </label>
+                              <input
+                                type="date"
+                                name="deactivationDate"
+                                value={editPlanData.deactivationDate}
+                                onChange={handleEditPlanChange}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Service Status
+                              </label>
+                              <select
+                                name="serviceStatus"
+                                value={editPlanData.serviceStatus}
+                                onChange={handleEditPlanChange}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
+                              >
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                                <option value="Suspended">Suspended</option>
+                                <option value="Expired">Expired</option>
+                              </select>
+                            </div>
+                            <div className="col-span-2">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Notes
+                              </label>
+                              <textarea
+                                name="notes"
+                                value={editPlanData.notes}
+                                onChange={handleEditPlanChange}
+                                rows={2}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm resize-none"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={handleUpdatePlan}
+                              disabled={isAddingPlan}
+                              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 text-sm font-medium"
+                            >
+                              {isAddingPlan ? 'Updating...' : 'Update Plan'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingPlanId(null);
+                                setEditPlanData(null);
+                              }}
+                              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
                       )}
-                      
-                      <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        Added: {format(new Date(plan.addedAt), 'dd MMM yyyy, hh:mm a')}
-                        {plan.addedBy && ` by ${plan.addedBy.name}`}
-                      </div>
-                    </div>
-
-                    {/* Edit Plan Form */}
-                    {isEditing && editPlanData && (
-                      <div className="p-4 border border-blue-500 rounded-lg bg-blue-50 dark:bg-blue-950 space-y-3 mt-2">
-                        <h5 className="font-semibold text-gray-900 dark:text-white">Edit Plan</h5>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Plan Type <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="text"
-                              name="planType"
-                              value={editPlanData.planType}
-                              onChange={handleEditPlanChange}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Billing Type <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              name="billingType"
-                              value={editPlanData.billingType}
-                              onChange={handleEditPlanChange}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
-                            >
-                              <option value="">Select...</option>
-                              <option value="Prepaid">Prepaid</option>
-                              <option value="Postpaid">Postpaid</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Billing Cycle <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              name="billingCycle"
-                              value={editPlanData.billingCycle}
-                              onChange={handleEditPlanChange}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
-                            >
-                              <option value="">Select...</option>
-                              <option value="Monthly">Monthly</option>
-                              <option value="Quarterly">Quarterly</option>
-                              <option value="Half-Yearly">Half-Yearly</option>
-                              <option value="Yearly">Yearly</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Validity Period <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="text"
-                              name="validityPeriod"
-                              value={editPlanData.validityPeriod}
-                              onChange={handleEditPlanChange}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Activation Date <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="date"
-                              name="activationDate"
-                              value={editPlanData.activationDate}
-                              onChange={handleEditPlanChange}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Deactivation Date
-                            </label>
-                            <input
-                              type="date"
-                              name="deactivationDate"
-                              value={editPlanData.deactivationDate}
-                              onChange={handleEditPlanChange}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Service Status
-                            </label>
-                            <select
-                              name="serviceStatus"
-                              value={editPlanData.serviceStatus}
-                              onChange={handleEditPlanChange}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm"
-                            >
-                              <option value="Active">Active</option>
-                              <option value="Inactive">Inactive</option>
-                              <option value="Suspended">Suspended</option>
-                              <option value="Expired">Expired</option>
-                            </select>
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Notes
-                            </label>
-                            <textarea
-                              name="notes"
-                              value={editPlanData.notes}
-                              onChange={handleEditPlanChange}
-                              rows={2}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950 text-gray-900 dark:text-white text-sm resize-none"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={handleUpdatePlan}
-                            disabled={isAddingPlan}
-                            className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 text-sm font-medium"
-                          >
-                            {isAddingPlan ? 'Updating...' : 'Update Plan'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingPlanId(null);
-                              setEditPlanData(null);
-                            }}
-                            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
                     </React.Fragment>
                   );
                 })}
@@ -2148,61 +2310,66 @@ export default function CustomerDetailsPanel({
       </div>
 
       {/* Footer */}
-      {!isSearchMode && (selectedCustomerId || isEditMode || queryCustomerInfo || isCreatingNew) && (
-        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex gap-2">
-          {isEditMode || isCreatingNew || (!selectedCustomerId && !queryCustomerInfo) ? (
-            <>
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white rounded-lg transition-all font-medium disabled:opacity-50"
-              >
-                <Save size={18} />
-                {isSaving ? 'Saving...' : (isEditMode ? 'Update Customer' : 'Create Customer')}
-              </button>
-              <button
-                onClick={() => {
-                  if (isEditMode) {
-                    setIsEditMode(false);
-                  } else if (isCreatingNew) {
-                    setIsCreatingNew(false);
-                    resetForm();
-                  } else {
-                    onClose();
-                  }
-                }}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-            </>
-          ) : queryCustomerInfo ? (
-            <>
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white rounded-lg transition-all font-medium disabled:opacity-50"
-              >
-                <Save size={18} />
-                {isSaving ? 'Saving...' : 'Create Customer'}
-              </button>
+      {!isSearchMode &&
+        (selectedCustomerId || isEditMode || queryCustomerInfo || isCreatingNew) && (
+          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex gap-2">
+            {isEditMode || isCreatingNew || (!selectedCustomerId && !queryCustomerInfo) ? (
+              <>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white rounded-lg transition-all font-medium disabled:opacity-50"
+                >
+                  <Save size={18} />
+                  {isSaving ? 'Saving...' : isEditMode ? 'Update Customer' : 'Create Customer'}
+                </button>
+                <button
+                  onClick={() => {
+                    if (isEditMode) {
+                      setIsEditMode(false);
+                    } else if (isCreatingNew) {
+                      setIsCreatingNew(false);
+                      resetForm();
+                    } else {
+                      onClose();
+                    }
+                  }}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : queryCustomerInfo ? (
+              <>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white rounded-lg transition-all font-medium disabled:opacity-50"
+                >
+                  <Save size={18} />
+                  {isSaving
+                    ? 'Saving...'
+                    : customerId || selectedCustomerId
+                    ? 'Update Customer'
+                    : 'Create Customer'}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
               >
-                Cancel
+                Close
               </button>
-            </>
-          ) : (
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-            >
-              Close
-            </button>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
     </div>
   );
 }

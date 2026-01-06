@@ -15,6 +15,7 @@ const AgentActivity = () => {
     const loginTime = agent.login_time ? new Date(agent.login_time) : null;
     const logoutTime = agent.logout_time ? new Date(agent.logout_time) : null;
     const breakLogs = agent.breakLogs || [];
+    const activeTime = agent.activeTime || 0;
     
     // Calculate total break duration
     let totalBreakMinutes = 0;
@@ -26,14 +27,6 @@ const AgentActivity = () => {
       }
     });
     
-    // Calculate active time (login to logout minus breaks)
-    let activeMinutes = 0;
-    if (loginTime) {
-      const endTime = logoutTime || new Date(); // Use current time if still active
-      const totalMinutes = Math.floor((endTime - loginTime) / 60000);
-      activeMinutes = Math.max(0, totalMinutes - totalBreakMinutes);
-    }
-    
     return {
       ...agent,
       activity: {
@@ -41,7 +34,7 @@ const AgentActivity = () => {
         logoutTime: logoutTime,
         totalBreaks: breakLogs.length,
         breakDuration: totalBreakMinutes,
-        activeTime: activeMinutes,
+        activeTime: activeTime,
         idleTime: 0, // Can be calculated based on workStatus changes if tracked
       }
     };

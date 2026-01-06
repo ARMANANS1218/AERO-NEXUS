@@ -69,7 +69,7 @@ const CustomerAppbar = ({ children }) => {
         open={open}
         onClose={() => setOpen(false)}
         role={role}
-        width={200}
+        width={260}
       />
 
       {/* Main content area - responsive, shrinks with sidebar, uses margin to account for fixed sidebar */}

@@ -9,6 +9,7 @@ import { motion as Motion } from "framer-motion";
 
 import { useLoginUserMutation, useAcceptTermsMutation } from "../../features/auth/authApi";
 import TermsContent from '../../components/TermsContent';
+import ForgotPasswordModal from '../../components/ForgotPasswordModal';
 import { connectSocket } from "../../hooks/socket";
 import ColorModeContext from '../../context/ColorModeContext';
 import Loading from '../../components/common/Loading';
@@ -61,6 +62,7 @@ export default function Login() {
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [termsChecked, setTermsChecked] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const colorMode = useContext(ColorModeContext);
 
   useEffect(() => {
@@ -362,31 +364,56 @@ export default function Login() {
           {/* TOP — Violet info panel */}
           <div className="w-full flex flex-col justify-center items-start p-6 text-white bg-gradient-to-br from-violet-700 via-violet-600 to-fuchsia-500">
             <div className="max-w-md w-full">
-              <Motion.h1 
+              <Motion.div 
                 key={`title-${mode}`}
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4 }}
-                className="text-3xl font-extrabold mb-3 text-white"
+                className="mb-3"
               >
-                {/* Customer login removed */}
-                {"WELCOME BACK!"}
-              </Motion.h1>
+                <div className="text-5xl font-black tracking-wide text-white mb-4">WELCOME</div>
+                <div className="text-xl font-medium text-white/90 border-l-4 border-white pl-3">Bitmax CRM</div>
+              </Motion.div>
               <Motion.p 
                 key={`desc-${mode}`}
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.05 }}
-                className="text-sm text-white mb-6"
+                className="text-sm text-white/95 mb-4 leading-relaxed"
               >
-                {"Sign in to access your internal tools, dashboards, and team resources."}
+                {"Comprehensive platform for managing queries, delivering solutions, and streamlining ticketing operations for your team."}
               </Motion.p>
+              <Motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.1 }}
+                className="space-y-2 mb-6"
+              >
+                <div className="flex items-center gap-2 text-sm text-white/90">
+                  <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Smart Ticketing & Query Management</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-white/90">
+                  <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Rapid Solutions & Support</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-white/90">
+                  <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Attendance & Performance Tracking</span>
+                </div>
+              </Motion.div>
               <div className="flex gap-3">
                 <button
                   className="px-4 py-2 rounded-md text-sm font-medium bg-white text-violet-700 shadow-lg"
                   disabled
                 >
-                  Agent
+                  Staff
                 </button>
                 {/* Customer toggle removed */}
               </div>
@@ -403,7 +430,7 @@ export default function Login() {
                 transition={{ duration: 0.3 }}
                 className="text-lg font-semibold text-center mb-4 text-white"
               >
-                {"Agent Login"}
+                {"CRM Login Panel"}
               </Motion.h2>
 
               <form onSubmit={formik.handleSubmit} className="space-y-4">
@@ -414,10 +441,10 @@ export default function Login() {
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <label className="text-xs text-white/90 block mb-2">Agent ID</label>
+                    <label className="text-xs text-white/90 block mb-2">Staff ID</label>
                     <input
                       name="employee_id"
-                      placeholder="Agent ID"
+                      placeholder="Staff ID"
                       value={formik.values.employee_id}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
@@ -477,6 +504,15 @@ export default function Login() {
                   {formik.touched.password && formik.errors.password && (
                     <p className="text-xs text-red-400 mt-1">{formik.errors.password}</p>
                   )}
+                  <div className="mt-2 text-right">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-xs text-violet-300 hover:text-violet-200 underline transition-colors"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
                 </div>
 
                 {mode === 'employee' && (
@@ -506,7 +542,7 @@ export default function Login() {
                 </div>
 
                 <p className="mt-3 text-xs text-white/70 text-center">
-                  Employee access only. Contact admin for help.
+                  Staff access only. Contact admin for assistance.
                 </p>
               </form>
             </div>
@@ -563,25 +599,51 @@ export default function Login() {
         style={{ willChange: "transform" }}
       >
         <div className="max-w-md">
-          <Motion.h1 
+          <Motion.div 
             key={`desktop-title-${mode}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-4xl md:text-5xl font-extrabold mb-4"
+            className="mb-4"
           >
-            {/* Customer variant removed */}
-            {"WELCOME BACK!"}
-          </Motion.h1>
+            <div className="text-6xl md:text-7xl font-black tracking-wide text-white mb-5">WELCOME</div>
+            <div className="text-2xl md:text-3xl font-medium text-white/90 border-l-4 border-white pl-4">Bitmax CRM</div>
+          </Motion.div>
           <Motion.p 
             key={`desktop-desc-${mode}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-base md:text-lg text-white/90 mb-8"
+            className="text-base md:text-lg text-white/95 mb-6 leading-relaxed"
           >
-            {"Sign in to access your internal tools, dashboards, and team resources."}
+            {"Comprehensive platform for managing queries, delivering solutions, and streamlining ticketing operations for your team."}
           </Motion.p>
+          <Motion.div
+            key={`desktop-features-${mode}`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="space-y-3 mb-8"
+          >
+            <div className="flex items-center gap-3 text-white/90">
+              <svg className="w-6 h-6 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="text-base">Smart Ticketing & Query Management</span>
+            </div>
+            <div className="flex items-center gap-3 text-white/90">
+              <svg className="w-6 h-6 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="text-base">Rapid Solutions & Support</span>
+            </div>
+            <div className="flex items-center gap-3 text-white/90">
+              <svg className="w-6 h-6 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="text-base">Attendance & Performance Tracking</span>
+            </div>
+          </Motion.div>
 
           {/* Mode Switch Buttons (Customer removed) */}
           <div className="flex gap-3">
@@ -589,7 +651,7 @@ export default function Login() {
               className="px-4 py-2 rounded-md text-sm font-medium bg-white text-violet-700 shadow-lg"
               disabled
             >
-              Agent
+              Staff
             </button>
           </div>
         </div>
@@ -611,7 +673,7 @@ export default function Login() {
             transition={{ duration: 0.4 }}
             className="text-xl md:text-2xl font-semibold text-center mb-6"
           >
-            {"Agent Login"}
+            {"CRM Login Panel"}
           </Motion.h2>
 
           <form onSubmit={formik.handleSubmit} className="space-y-4">
@@ -622,10 +684,10 @@ export default function Login() {
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <label className="text-xs text-white/70 block mb-2">Agent ID</label>
+                <label className="text-xs text-white/70 block mb-2">Staff ID</label>
                 <input
                   name="employee_id"
-                  placeholder="Agent ID"
+                  placeholder="Staff ID"
                   value={formik.values.employee_id}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
@@ -683,6 +745,19 @@ export default function Login() {
               {formik.touched.password && formik.errors.password && (
                 <p className="text-xs text-red-400 mt-1">{formik.errors.password}</p>
               )}
+              <div className="mt-2 text-right relative z-10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    console.log('Forgot password clicked');
+                    setShowForgotPassword(true);
+                  }}
+                  className="text-xs text-violet-300 hover:text-violet-200 underline transition-colors cursor-pointer"
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  Forgot Password?
+                </button>
+              </div>
             </div>
 
             {mode === 'employee' && (
@@ -736,6 +811,12 @@ export default function Login() {
         </div>
       </div>
     )}
+
+    {/* Forgot Password Modal */}
+    <ForgotPasswordModal 
+      open={showForgotPassword} 
+      onClose={() => setShowForgotPassword(false)} 
+    />
     </>
   );
 }

@@ -325,16 +325,19 @@ const CustomerList = () => {
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-3">
-                            <Avatar
-                              sx={{
-                                bgcolor: '#0d9488',
-                                width: 40,
-                                height: 40,
-                                fontSize: '1rem'
-                              }}
-                            >
-                              {customer.name?.charAt(0).toUpperCase() || 'C'}
-                            </Avatar>
+                            {
+                              customer.profileImage ? (
+                                <img
+                                  src={customer.profileImage}
+                                  alt={customer.name}
+                                  className="w-9 h-9 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                                  {customer.name?.charAt(0).toUpperCase() || 'C'}
+                                </div>
+                              )
+                            }
                             <div>
                               <div className="font-medium text-gray-900 dark:text-white">
                                 {customer.name || 'Unknown'}

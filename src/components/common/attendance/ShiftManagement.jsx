@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Clock, Save, X } from 'lucide-react';
 import axios from 'axios';
 import { API_URL } from '../../../config/api';
-                                                                                
+
 export default function ShiftManagement() {
   const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);

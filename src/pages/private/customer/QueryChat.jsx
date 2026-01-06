@@ -4,6 +4,7 @@ import React, {
   useRef,
   useContext,
   useCallback,
+  useMemo,
 } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -31,6 +32,8 @@ import {
   Save,
   X,
   ArrowUpCircle,
+  FolderOpen,
+  Tag,
 } from "lucide-react";
 import {
   useGetQueryByPetitionIdQuery,
@@ -48,7 +51,10 @@ import {
   useDeleteFaqMutation,
 } from "../../../features/faq/faqApi";
 import { useUploadScreenshotMutation } from "../../../features/screenshot/screenshotApi";
-import { useFindCustomerByQueryQuery } from "../../../features/customer/customerApi";
+import {
+  useFindCustomerByQueryQuery,
+  useUpdateCustomerProfileImageMutation,
+} from "../../../features/customer/customerApi";
 import { toast } from "react-toastify";
 import { format, formatDistanceToNow } from "date-fns";
 import { io } from "socket.io-client";
@@ -100,7 +106,7 @@ const getDisplayName = (customerName, customerEmail) => {
   return "Guest User";
 };
 
-export default function QueryChat() {
+const QueryChat = () => {
   const { petitionId } = useParams();
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
@@ -113,6 +119,7 @@ export default function QueryChat() {
   const [showActions, setShowActions] = useState(false);
   const [localMessages, setLocalMessages] = useState([]);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showFeedbackView, setShowFeedbackView] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showRateModal, setShowRateModal] = useState(false);
@@ -130,11 +137,14 @@ export default function QueryChat() {
   const [newCommonReply, setNewCommonReply] = useState("");
   const [isAddingCommon, setIsAddingCommon] = useState(false);
   const [editingCommonId, setEditingCommonId] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [tagFilter, setTagFilter] = useState("");
   const faqPanelRef = useRef(null);
 
   // Customer Details Panel state
   const [showCustomerPanel, setShowCustomerPanel] = useState(false);
   const [customerPanelData, setCustomerPanelData] = useState(null);
+  const [pendingProfileImage, setPendingProfileImage] = useState(null); // New state for passing image to create customer
 
   // Suggested Messages state
   const [suggestedMessages, setSuggestedMessages] = useState([]);
@@ -155,6 +165,7 @@ export default function QueryChat() {
   const [acceptQuery, { isLoading: isAccepting }] = useAcceptQueryMutation();
   const [createCall] = useCreateCallMutation();
   const [uploadScreenshot] = useUploadScreenshotMutation();
+  const [updateCustomerProfileImage] = useUpdateCustomerProfileImageMutation();
 
   // Auto-fetch customer data when panel is opened
   const { data: customerByQueryData } = useFindCustomerByQueryQuery(
@@ -168,6 +179,12 @@ export default function QueryChat() {
   const query = queryData?.data;
   const isCustomer = currentUser?.role === "Customer";
   const isAgent = ["Agent", "QA", "Admin", "TL"].includes(currentUser?.role);
+
+  const queryCustomerInfo = useMemo(() => ({
+    name: query?.customerName,
+    email: query?.customerEmail,
+    mobile: query?.customer?.mobile
+  }), [query?.customerName, query?.customerEmail, query?.customer?.mobile]);
 
   // FAQ API hooks (must be after isAgent is defined)
   const { data: faqsData } = useGetFaqsQuery(undefined, { skip: !isAgent });
@@ -227,12 +244,15 @@ export default function QueryChat() {
         transfer.from === currentUser?._id && transfer.status !== "Accepted"
     );
 
-  // Agent can message only if: currently assigned
+  // Agent can message only if: currently assigned AND not the one who escalated it away
   const canSendMessage =
-    isCustomer || (isAgent && assignedToId === currentUser?._id);
+    isCustomer ||
+    (isAgent &&
+      assignedToId === currentUser?._id &&
+      !wasEscalatedByCurrentUser);
   const isWaitingForAssignment = isAgent && !assignedToId;
-  const isNotAuthorized = false; // Allow viewing for all
-  const canViewChat = true; // Everyone can view the chat (TL, QA, Agent)
+  const isNotAuthorized = false; // Allow viewing but restrict input
+  const canViewChat = true; // Everyone can view chat history
 
   // Auto-populate customer data when found
   useEffect(() => {
@@ -395,6 +415,15 @@ export default function QueryChat() {
       if (data.petitionId === petitionId && isCustomer) {
         // Auto-trigger feedback modal
         setShowFeedbackModal(true);
+      }
+    });
+
+    // Listen for feedback received from customer (for agents to see in real-time)
+    socketRef.current.on("feedback-received", (data) => {
+      if (data.petitionId === petitionId) {
+        console.log("📝 Feedback received:", data);
+        toast.success("Customer feedback received!");
+        refetch(); // Refresh query data to show feedback
       }
     });
 
@@ -561,6 +590,15 @@ export default function QueryChat() {
         userName: currentUser.name,
         isTyping: true,
       });
+
+      // Also emit agent-typing for widget customers
+      if (isAgent) {
+        socketRef.current.emit("agent-typing", {
+          petitionId,
+          agentName: currentUser.alias || currentUser.name,
+          isTyping: true,
+        });
+      }
     }
   };
 
@@ -914,7 +952,24 @@ export default function QueryChat() {
   // Camera snapshot flow
   const requestCustomerSnapshot = () => {
     if (!socketRef.current || !isAssignedAgent) return;
+
+    // Send socket event to customer
     socketRef.current.emit("request-camera-snapshot", { petitionId });
+
+    // Add a system message to chat indicating waiting for snapshot
+    const waitingMessage = {
+      _id: `snapshot-request-${Date.now()}`,
+      message: "📷 Waiting for customer's snapshot...",
+      sentBy: currentUser._id,
+      senderName: currentUser.name,
+      role: currentUser.role,
+      timestamp: new Date().toISOString(),
+      isSystemMessage: true,
+    };
+
+    // Add to local messages immediately for instant feedback
+    setMessages((prev) => [...prev, waitingMessage]);
+
     toast.info("Snapshot request sent to customer");
   };
 
@@ -998,6 +1053,31 @@ export default function QueryChat() {
     } finally {
       setIsCapturing(false);
       setSnapshotRequest(null);
+    }
+  };
+
+  // Handle saving snapshot as customer profile image
+  const handleSaveAsProfileImage = async (customerId, imageUrl) => {
+    if (!customerId || !imageUrl) {
+      toast.error("Customer ID or image URL missing");
+      return;
+    }
+
+    try {
+      const result = await updateCustomerProfileImage({
+        customerId,
+        imageUrl,
+      }).unwrap();
+      toast.success("Profile image updated successfully!");
+
+      // Send a system message to chat
+      await sendQueryMessage({
+        petitionId,
+        message: `✅ Customer profile image has been updated by ${currentUser?.name}`,
+      }).unwrap();
+    } catch (error) {
+      console.error("Error updating profile image:", error);
+      toast.error(error?.data?.message || "Failed to update profile image");
     }
   };
 
@@ -1317,15 +1397,49 @@ export default function QueryChat() {
     }
   };
 
-  const filteredFaqs = faqs.filter(
-    (faq) =>
-      faq.question?.toLowerCase().includes(faqSearch.toLowerCase()) ||
-      faq.answer?.toLowerCase().includes(faqSearch.toLowerCase())
-  );
+  // Get unique categories and tags - separate for Common Replies and FAQs
+  const commonCategories = [
+    ...new Set(commonReplies.map((item) => item.category).filter(Boolean)),
+  ];
+  const faqCategories = [
+    ...new Set(faqs.map((item) => item.category).filter(Boolean)),
+  ];
+  const commonTags = [
+    ...new Set(
+      commonReplies.flatMap((item) => item.tags || []).filter(Boolean)
+    ),
+  ];
+  const faqTags = [
+    ...new Set(faqs.flatMap((item) => item.tags || []).filter(Boolean)),
+  ];
 
-  const filteredCommonReplies = commonReplies.filter((reply) =>
-    reply.text?.toLowerCase().includes(commonSearch.toLowerCase())
-  );
+  const filteredFaqs = faqs.filter((faq) => {
+    const matchesSearch =
+      faq.question?.toLowerCase().includes(faqSearch.toLowerCase()) ||
+      faq.answer?.toLowerCase().includes(faqSearch.toLowerCase());
+    const matchesCategory =
+      categoryFilter === "all" || faq.category === categoryFilter;
+    const matchesTag =
+      !tagFilter ||
+      (faq.tags || []).some((tag) =>
+        tag.toLowerCase().includes(tagFilter.toLowerCase())
+      );
+    return matchesSearch && matchesCategory && matchesTag;
+  });
+
+  const filteredCommonReplies = commonReplies.filter((reply) => {
+    const matchesSearch = reply.text
+      ?.toLowerCase()
+      .includes(commonSearch.toLowerCase());
+    const matchesCategory =
+      categoryFilter === "all" || reply.category === categoryFilter;
+    const matchesTag =
+      !tagFilter ||
+      (reply.tags || []).some((tag) =>
+        tag.toLowerCase().includes(tagFilter.toLowerCase())
+      );
+    return matchesSearch && matchesCategory && matchesTag;
+  });
 
   if (isLoading) {
     return (
@@ -1362,11 +1476,16 @@ export default function QueryChat() {
 
   return (
     <div className="flex h-[calc(100vh-64px)] bg-white dark:bg-gray-950 overflow-hidden">
-      {/* Main Chat Container - Shrinks when customer panel is open */}
+      {/* Main Chat Container - Shrinks when customer panel or weightage panel is open */}
       <div
         className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${
           showCustomerPanel ? "mr-0" : ""
+        } ${
+          showRateModal && isQATeam ? "mr-[600px]" : ""
         } overflow-x-hidden overflow-y-auto relative`}
+        style={{
+          maxWidth: showRateModal && isQATeam ? 'calc(100% - 600px)' : '100%'
+        }}
       >
         {/* Header */}
         <div className="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-700 shadow-sm">
@@ -1395,14 +1514,22 @@ export default function QueryChat() {
                 <div className="flex items-center gap-3">
                   {/* Avatar */}
                   <div className="relative">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
-                      {isCustomer
-                        ? query.assignedToName?.[0] || "A"
-                        : getDisplayName(
-                            query.customerName,
-                            query.customerEmail
-                          )?.[0] || "C"}
-                    </div>
+                    {query?.customer?.profileImage ? (
+                      <img
+                        src={query.customer.profileImage}
+                        alt={query.customer.name}
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                        {isCustomer
+                          ? query.assignedToName?.[0] || "A"
+                          : getDisplayName(
+                              query.customerName,
+                              query.customerEmail
+                            )?.[0] || "C"}
+                      </div>
+                    )}
                     <div
                       className={`absolute bottom-0 right-0 w-3.5 h-3.5 ${
                         query.status === "In Progress" ||
@@ -1450,6 +1577,19 @@ export default function QueryChat() {
                         >
                           {evaluationSummary.category} {evaluationSummary.score}
                           %
+                        </span>
+                      )}
+                      {/* Customer Feedback Badge */}
+                      {query?.feedback && (
+                        <span
+                          className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500 text-white ml-1 flex items-center gap-1"
+                          title={`Customer Rating: ${query.feedback.rating}/5${
+                            query.feedback.comment
+                              ? ` - ${query.feedback.comment}`
+                              : ""
+                          }`}
+                        >
+                          <span>⭐</span> {query.feedback.rating}/5
                         </span>
                       )}
                     </div>
@@ -1533,6 +1673,18 @@ export default function QueryChat() {
                         <Clock size={18} />
                         <span className="hidden sm:inline">Escalation</span>
                         <span className="sm:hidden">Esc</span>
+                      </button>
+                    )}
+
+                    {/* Feedback View Button - Show when feedback exists */}
+                    {query?.feedback && isAgent && (
+                      <button
+                        onClick={() => setShowFeedbackView(true)}
+                        className="flex items-center gap-2 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-sm transition-all font-medium shadow-md bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-sm"
+                        title="View customer feedback"
+                      >
+                        <span>⭐</span>
+                        <span className="hidden sm:inline">Feedback</span>
                       </button>
                     )}
 
@@ -1968,6 +2120,14 @@ export default function QueryChat() {
                                 );
                                 if (urlMatch) {
                                   const imgUrl = urlMatch[0];
+                                  const isSnapshot =
+                                    text.includes("📸") ||
+                                    text.includes("Screenshot");
+                                  const customerId =
+                                    typeof query?.customer === "object"
+                                      ? query?.customer?._id
+                                      : query?.customer;
+
                                   return (
                                     <div className="space-y-2">
                                       <p className="text-xs opacity-80">
@@ -1981,6 +2141,36 @@ export default function QueryChat() {
                                         alt="snapshot"
                                         className="rounded-lg max-h-64 object-contain border border-gray-200 dark:border-gray-700"
                                       />
+
+                                      {/* Show "Save as Profile" button for Agent/TL/QA when viewing snapshot */}
+                                      {/* Show "Use as Profile Image" button for Agent/TL/QA when viewing snapshot */}
+                                      {isSnapshot &&
+                                        !isCustomer &&
+                                        ["Agent", "TL", "QA"].includes(
+                                          currentUser?.role
+                                        ) && (
+                                          <div className="flex flex-col gap-2 mt-2">
+                                            <button
+                                              onClick={() => {
+                                                setPendingProfileImage(imgUrl);
+                                                // If customer exists, we still open the panel but pass the image to override
+                                                if (customerId) {
+                                                  setCustomerPanelData({
+                                                    customerId,
+                                                  });
+                                                } else {
+                                                  setCustomerPanelData(null);
+                                                }
+                                                setShowCustomerPanel(true);
+                                              }}
+                                              className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                                              title="Use this image as customer's profile photo"
+                                            >
+                                              <User size={14} />
+                                              Use as Profile Image
+                                            </button>
+                                          </div>
+                                        )}
                                     </div>
                                   );
                                 }
@@ -2056,6 +2246,51 @@ export default function QueryChat() {
             </>
           )}
         </div>
+
+        {/* Customer Feedback Display - Show after resolution */}
+        {query?.status === "Resolved" && query?.feedback && (
+          <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-t border-b border-amber-200 dark:border-amber-800">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white">
+                  <span>⭐</span>
+                </div>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h4 className="font-semibold text-gray-900 dark:text-white">
+                    Customer Feedback
+                  </h4>
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span key={star} className="text-lg">
+                        {star <= query.feedback.rating ? (
+                          <span>⭐</span>
+                        ) : (
+                          <span>☆</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
+                    {query.feedback.rating}/5
+                  </span>
+                </div>
+                {query.feedback.comment && (
+                  <p className="text-sm text-gray-700 dark:text-gray-300 italic">
+                    "{query.feedback.comment}"
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Submitted{" "}
+                  {formatDistanceToNow(new Date(query.feedback.submittedAt), {
+                    addSuffix: true,
+                  })}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Input Area */}
         {query.status !== "Resolved" && query.status !== "Expired" ? (
@@ -2270,11 +2505,116 @@ export default function QueryChat() {
             isOpen={showFeedbackModal}
             onClose={() => {
               setShowFeedbackModal(false);
-              refetch(); // Refresh query data after feedback
+              // Force refetch after closing to show updated feedback
+              setTimeout(() => {
+                refetch();
+              }, 500);
+            }}
+            onSubmitSuccess={(feedbackData) => {
+              // Add feedback message to chat
+              const feedbackMessage = {
+                message: `Customer Feedback:\n⭐ Rating: ${
+                  feedbackData.rating
+                }/5${
+                  feedbackData.comment
+                    ? `\n💬 Comment: "${feedbackData.comment}"`
+                    : ""
+                }`,
+                sender: "system",
+                senderName: "System",
+                senderRole: "System",
+                timestamp: new Date(),
+                read: true,
+              };
+              setLocalMessages((prev) => [...prev, feedbackMessage]);
+              // Refetch immediately to update query.feedback data
+              refetch();
             }}
             petitionId={petitionId}
             querySubject={query?.subject || ""}
           />
+        )}
+
+        {/* Feedback View Modal (for agents to view submitted feedback) */}
+        {showFeedbackView && query?.feedback && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-2xl max-w-md w-full">
+              {/* Header */}
+              <div className="relative p-6 border-b border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setShowFeedbackView(false)}
+                  className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <X size={20} className="text-gray-500 dark:text-gray-400" />
+                </button>
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-3xl">⭐</span>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    Customer Feedback
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {query.petitionId}
+                  </p>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-6">
+                {/* Rating Display */}
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                    Rating
+                  </label>
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span key={star} className="text-3xl">
+                        {star <= query.feedback.rating ? "⭐" : "☆"}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-center text-2xl font-bold text-amber-600 dark:text-amber-400">
+                    {query.feedback.rating}/5
+                  </p>
+                </div>
+
+                {/* Comment Display */}
+                {query.feedback.comment && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Comment
+                    </label>
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                      <p className="text-gray-700 dark:text-gray-300 italic">
+                        "{query.feedback.comment}"
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Timestamp */}
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Submitted{" "}
+                    {formatDistanceToNow(new Date(query.feedback.submittedAt), {
+                      addSuffix: true,
+                    })}
+                  </p>
+                </div>
+
+                {/* Close Button */}
+                <div className="mt-6">
+                  <button
+                    onClick={() => setShowFeedbackView(false)}
+                    className="w-full py-3 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white font-semibold rounded-lg transition-all"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Transfer Dialog */}
@@ -2291,12 +2631,13 @@ export default function QueryChat() {
           />
         )}
 
-        {/* Rate Query Modal */}
-        {showRateModal && isQATeam && (
+        {/* Rate Query Modal - Sliding Panel */}
+        {isQATeam && (
           <RateQueryModal
             petitionId={petitionId}
             readOnly={!canSetWeightage}
             existingData={evalData?.data}
+            isOpen={showRateModal}
             onClose={(saved) => {
               setShowRateModal(false);
               if (saved) {
@@ -2359,8 +2700,9 @@ export default function QueryChat() {
               </button>
             </div>
 
-            {/* Search Bar */}
-            <div className="px-2 py-2 border-b border-gray-200 dark:border-gray-700">
+            {/* Search and Filter Bar */}
+            <div className="px-2 py-2 border-b border-gray-200 dark:border-gray-700 space-y-2">
+              {/* Search Input */}
               <div className="relative">
                 <Search
                   size={18}
@@ -2385,6 +2727,55 @@ export default function QueryChat() {
                       : "bg-white border-gray-300 text-gray-900"
                   }`}
                 />
+              </div>
+
+              {/* Category and Tag Filters */}
+              <div className="flex gap-2">
+                {/* Category Filter */}
+                <div className="flex-1 relative">
+                  <FolderOpen
+                    size={14}
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"
+                  />
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className={`w-full pl-8 pr-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      isDark
+                        ? "bg-gray-950 border-gray-700 text-white"
+                        : "bg-white border-gray-300 text-gray-900"
+                    }`}
+                  >
+                    <option value="all">All Categories</option>
+                    {(activeSection === "common"
+                      ? commonCategories
+                      : faqCategories
+                    ).map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Tag Filter */}
+                <div className="flex-1 relative">
+                  <Tag
+                    size={14}
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Filter by tag..."
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    className={`w-full pl-8 pr-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      isDark
+                        ? "bg-gray-950 border-gray-700 text-white placeholder-gray-500"
+                        : "bg-white border-gray-300 text-gray-900"
+                    }`}
+                  />
+                </div>
               </div>
             </div>
 
@@ -2553,13 +2944,47 @@ export default function QueryChat() {
                         ) : (
                           <div>
                             <div className="flex items-start justify-between gap-2">
-                              <p
-                                className={`text-sm whitespace-pre-wrap flex-1 ${
-                                  isDark ? "text-gray-300" : "text-gray-700"
-                                }`}
-                              >
-                                {reply.text}
-                              </p>
+                              <div className="flex-1">
+                                <p
+                                  className={`text-sm whitespace-pre-wrap ${
+                                    isDark ? "text-gray-300" : "text-gray-700"
+                                  }`}
+                                >
+                                  {reply.text}
+                                </p>
+                                {/* Category and Tags Display */}
+                                {(reply.category ||
+                                  (reply.tags && reply.tags.length > 0)) && (
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                    {reply.category && (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700">
+                                        <FolderOpen
+                                          size={9}
+                                          className="text-green-600 dark:text-green-400"
+                                        />
+                                        <span className="text-[10px] font-medium text-green-700 dark:text-green-300">
+                                          {reply.category}
+                                        </span>
+                                      </span>
+                                    )}
+                                    {reply.tags &&
+                                      reply.tags.map((tag, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700"
+                                        >
+                                          <Tag
+                                            size={8}
+                                            className="text-blue-600 dark:text-blue-400"
+                                          />
+                                          <span className="text-[10px] text-blue-700 dark:text-blue-300">
+                                            {tag}
+                                          </span>
+                                        </span>
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 <button
                                   onClick={() => handleCopyAnswer(reply.text)}
@@ -2710,13 +3135,47 @@ export default function QueryChat() {
                             )} */}
                           </div>
                           <div className="flex items-start justify-between gap-2">
-                            <p
-                              className={`text-sm flex-1 whitespace-pre-wrap ${
-                                isDark ? "text-gray-300" : "text-gray-700"
-                              }`}
-                            >
-                              A: {faq.answer}
-                            </p>
+                            <div className="flex-1">
+                              <p
+                                className={`text-sm whitespace-pre-wrap ${
+                                  isDark ? "text-gray-300" : "text-gray-700"
+                                }`}
+                              >
+                                A: {faq.answer}
+                              </p>
+                              {/* Category and Tags Display */}
+                              {(faq.category ||
+                                (faq.tags && faq.tags.length > 0)) && (
+                                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                  {faq.category && (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700">
+                                      <FolderOpen
+                                        size={9}
+                                        className="text-green-600 dark:text-green-400"
+                                      />
+                                      <span className="text-[10px] font-medium text-green-700 dark:text-green-300">
+                                        {faq.category}
+                                      </span>
+                                    </span>
+                                  )}
+                                  {faq.tags &&
+                                    faq.tags.map((tag, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700"
+                                      >
+                                        <Tag
+                                          size={8}
+                                          className="text-blue-600 dark:text-blue-400"
+                                        />
+                                        <span className="text-[10px] text-blue-700 dark:text-blue-300">
+                                          {tag}
+                                        </span>
+                                      </span>
+                                    ))}
+                                </div>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button
                                 onClick={() => handleCopyAnswer(faq.answer)}
@@ -2761,14 +3220,14 @@ export default function QueryChat() {
         >
           <CustomerDetailsPanel
             isOpen={showCustomerPanel}
-            onClose={() => setShowCustomerPanel(false)}
+            onClose={() => {
+              setShowCustomerPanel(false);
+              setPendingProfileImage(null); // Clear the pending image when panel closes
+            }}
             customerId={customerPanelData?.customerId}
             petitionId={petitionId} // Pass current query's petitionId
-            queryCustomerInfo={{
-              name: query?.customerName,
-              email: query?.customerEmail,
-              mobile: query?.customer?.mobile,
-            }}
+            queryCustomerInfo={queryCustomerInfo}
+            initialProfileImage={pendingProfileImage}
             onSave={(savedCustomer) => {
               toast.success("Customer details saved");
               refetch(); // Refresh query data
@@ -2779,3 +3238,6 @@ export default function QueryChat() {
     </div>
   );
 }
+
+
+export default QueryChat

@@ -1,13 +1,65 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, useParams, useOutletContext } from 'react-router-dom';
-import { ChevronDown, Search, PanelLeftClose, PanelLeft, Inbox, Users, List, RefreshCw, Trash2, UserCheck, UserPlus, FileText, Wrench, DollarSign, Lightbulb, Bug, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import {
+  ChevronDown,
+  Search,
+  PanelLeftClose,
+  PanelLeft,
+  Inbox,
+  Users,
+  List,
+  RefreshCw,
+  Trash2,
+  UserCheck,
+  UserPlus,
+  FileText,
+  Wrench,
+  DollarSign,
+  Lightbulb,
+  Bug,
+  AlertCircle,
+  AlertTriangle,
+  Info,
+} from 'lucide-react';
 import ColorModeContext from '../../../context/ColorModeContext';
 import { toast } from 'react-toastify';
-import { useListTicketsQuery, useDeleteTicketMutation, useAssignTicketMutation } from '../../../features/emailTicket/emailTicketApi';
+import {
+  useListTicketsQuery,
+  useDeleteTicketMutation,
+  useAssignTicketMutation,
+} from '../../../features/emailTicket/emailTicketApi';
 import { getTicketSocket } from '../../../socket/ticketSocket';
 import { useGetProfileQuery } from '../../../features/auth/authApi';
 import { useGetAssignableAgentsQuery } from '../../../features/admin/adminApi';
+import { useGetTicketEvaluationQuery } from '../../../features/qa/qaTicketEvaluationApi';
 import { IMG_PROFILE_URL } from '../../../config/api';
+
+function TicketWeightageBadge({ ticketId }) {
+  const { data, isFetching, isError } = useGetTicketEvaluationQuery(ticketId, { skip: !ticketId });
+  const score = data?.data?.totalScore;
+  const category = data?.data?.performanceCategory;
+
+  if (isFetching || isError || score === undefined || score === null) return null;
+
+  const normalized = String(category || '').toLowerCase();
+  const color = normalized === 'excellent'
+    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200'
+    : normalized === 'good'
+    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200'
+    : normalized === 'needs improvement'
+    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200'
+    : normalized === 'average'
+    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-100'
+    : normalized === 'fail' || normalized === 'failed'
+    ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200'
+    : 'bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-100';
+
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${color}`} title={`Weightage: ${score}% (${category || 'Uncategorized'})`}>
+      {score}%
+    </span>
+  );
+}
 
 /**
  * EmailTicketListView: Center pane showing list of email tickets
@@ -19,31 +71,45 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
   const params = useParams();
   const outletContext = useOutletContext();
   const { sidebarCollapsed, setSidebarCollapsed } = outletContext || {};
-  
+
   const [statusFilter, setStatusFilter] = useState('open');
   const [sortBy, setSortBy] = useState('newest-activity');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
-  const [deleteModal, setDeleteModal] = useState({ show: false, ticketId: null, ticketSubject: '' });
-  const [assignModal, setAssignModal] = useState({ show: false, ticketId: null, ticketSubject: '' });
-  const [confirmModal, setConfirmModal] = useState({ show: false, agentId: null, agentName: '', ticketSubject: '' });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [deleteModal, setDeleteModal] = useState({
+    show: false,
+    ticketId: null,
+    ticketSubject: '',
+  });
+  const [assignModal, setAssignModal] = useState({
+    show: false,
+    ticketId: null,
+    ticketSubject: '',
+  });
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    agentId: null,
+    agentName: '',
+    ticketSubject: '',
+  });
   const [agentSearchQuery, setAgentSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
 
   const { data: profileData } = useGetProfileQuery();
   const currentUser = profileData?.data;
-  
+
   const { data: usersData, isLoading: isLoadingUsers } = useGetAssignableAgentsQuery();
   // API returns Agent, TL, QA roles for assignment/escalation
   const agents = usersData?.data || [];
-  
+
   // Debug log
-  console.log('📊 Assignable Agents data:', { 
-    total: agents.length, 
-    roles: agents.map(a => ({ name: a.name, role: a.role, dept: a.department, tier: a.tier })),
-    raw: usersData 
-  });
+  // console.log('📊 Assignable Agents data:', {
+  //   total: agents.length,
+  //   roles: agents.map((a) => ({ name: a.name, role: a.role, dept: a.department, tier: a.tier })),
+  //   raw: usersData,
+  // });
 
   const selectedTicketId = params.ticketId || null;
 
@@ -81,7 +147,7 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
     queryParams.priority = priority;
   }
 
-  const { data, isLoading, refetch } = useListTicketsQuery(queryParams);
+  const { data, isLoading, isFetching, refetch } = useListTicketsQuery(queryParams);
   const tickets = data?.tickets || [];
   const totalPages = data?.totalPages || 1;
 
@@ -91,7 +157,7 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
   // Socket connection for real-time updates
   useEffect(() => {
     const socket = getTicketSocket();
-    
+
     const handleNewTicket = (ticket) => {
       console.log('[ticket] New ticket received:', ticket);
       toast.info(`New Ticket: ${ticket.ticketId}`);
@@ -156,36 +222,46 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
 
   const formatTeamInbox = (teamInbox) => {
     const nameMap = {
-      'general': 'General',
+      general: 'General',
       'technical-issue': 'Technical Issue',
-      'billing': 'Billing',
+      billing: 'Billing',
       'feature-request': 'Feature Request',
-      'bug-report': 'Bug Report'
+      'bug-report': 'Bug Report',
     };
-    return nameMap[teamInbox] || teamInbox.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    return (
+      nameMap[teamInbox] ||
+      teamInbox
+        .split('-')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ')
+    );
   };
 
   const getCategoryIcon = (category) => {
     const iconMap = {
-      'general': FileText,
+      general: FileText,
       'technical-issue': Wrench,
-      'billing': DollarSign,
+      billing: DollarSign,
       'feature-request': Lightbulb,
-      'bug-report': Bug
+      'bug-report': Bug,
     };
     return iconMap[category] || FileText;
   };
 
   const getPriorityColor = (priority) => {
     if (priority === 'high') return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300';
-    if (priority === 'medium') return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300';
-    if (priority === 'low') return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
+    if (priority === 'medium')
+      return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300';
+    if (priority === 'low')
+      return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
     return 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-400';
   };
 
   const getStatusBadge = (status) => {
-    if (status === 'open') return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
-    if (status === 'pending') return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300';
+    if (status === 'open')
+      return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
+    if (status === 'pending')
+      return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300';
     return 'bg-gray-100 dark:bg-gray-950 text-gray-700 dark:text-gray-300';
   };
 
@@ -218,7 +294,7 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
   const confirmDelete = async () => {
     const { ticketId } = deleteModal;
     setDeleteModal({ show: false, ticketId: null, ticketSubject: '' });
-    
+
     try {
       await deleteTicket(ticketId).unwrap();
       toast.success('Ticket deleted successfully', {
@@ -267,15 +343,15 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
 
   // Show confirmation before assigning
   const handleAssignToAgent = (agentId) => {
-    const agent = agents.find(a => a._id === agentId);
+    const agent = agents.find((a) => a._id === agentId);
     const displayName = agent?.name + (agent?.alias ? ` (${agent.alias})` : '');
     const { ticketSubject } = assignModal;
-    
-    setConfirmModal({ 
-      show: true, 
-      agentId, 
+
+    setConfirmModal({
+      show: true,
+      agentId,
       agentName: displayName,
-      ticketSubject 
+      ticketSubject,
     });
   };
 
@@ -283,10 +359,10 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
   const confirmAssign = async () => {
     const { ticketId } = assignModal;
     const { agentId, agentName } = confirmModal;
-    
+
     setConfirmModal({ show: false, agentId: null, agentName: '', ticketSubject: '' });
     setAssignModal({ show: false, ticketId: null, ticketSubject: '' });
-    
+
     try {
       await assignTicket({ ticketId, assignedTo: agentId }).unwrap();
       toast.success(`Ticket assigned to ${agentName}`, {
@@ -309,26 +385,27 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
   };
 
   // Filter agents based on search query, role, and department
-  const filteredAgents = agents.filter(agent => {
+  const filteredAgents = agents.filter((agent) => {
     const searchLower = agentSearchQuery.toLowerCase();
     const name = (agent.name || '').toLowerCase();
     const alias = (agent.alias || '').toLowerCase();
     const role = (agent.role || '').toLowerCase();
     const email = (agent.email || '').toLowerCase();
-    
+
     // Apply text search filter
-    const matchesSearch = !agentSearchQuery || 
-      name.includes(searchLower) || 
+    const matchesSearch =
+      !agentSearchQuery ||
+      name.includes(searchLower) ||
       alias.includes(searchLower) ||
-      role.includes(searchLower) || 
+      role.includes(searchLower) ||
       email.includes(searchLower);
-    
+
     // Apply role filter
     const matchesRole = roleFilter === 'all' || agent.role === roleFilter;
-    
+
     // Apply department filter
     const matchesDepartment = departmentFilter === 'all' || agent.department === departmentFilter;
-    
+
     return matchesSearch && matchesRole && matchesDepartment;
   });
 
@@ -345,9 +422,15 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
         </button>
         {priority ? (
           <span className="text-gray-700 dark:text-gray-300">
-            {priority === 'high' && <AlertCircle size={16} className="text-red-600 dark:text-red-400" />}
-            {priority === 'medium' && <AlertTriangle size={16} className="text-yellow-600 dark:text-yellow-400" />}
-            {priority === 'low' && <Info size={16} className="text-green-600 dark:text-green-400" />}
+            {priority === 'high' && (
+              <AlertCircle size={16} className="text-red-600 dark:text-red-400" />
+            )}
+            {priority === 'medium' && (
+              <AlertTriangle size={16} className="text-yellow-600 dark:text-yellow-400" />
+            )}
+            {priority === 'low' && (
+              <Info size={16} className="text-green-600 dark:text-green-400" />
+            )}
           </span>
         ) : teamInbox ? (
           (() => {
@@ -357,15 +440,21 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
         ) : (
           <ViewIcon size={16} className="text-gray-700 dark:text-gray-300" />
         )}
-        <h2 className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">{getViewTitle()}</h2>
+        <h2 className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">
+          {getViewTitle()}
+        </h2>
         <div className="flex-1"></div>
         <button
-          onClick={() => refetch()}
-          disabled={isLoading}
-          className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors disabled:opacity-50"
+          onClick={async () => {
+            setIsRefreshing(true);
+            await refetch();
+            setTimeout(() => setIsRefreshing(false), 500);
+          }}
+          disabled={isRefreshing}
+          className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           title="Refresh"
         >
-          <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+          <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
         </button>
       </div>
 
@@ -403,14 +492,14 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
           >
             <option value="newest-activity">Latest Activity</option>
             <option value="oldest-activity">Oldest Activity</option>
-            
           </select>
         </div>
       </div>
 
       {/* Ticket count */}
       <div className="px-3 py-2 text-[13px] font-medium text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-900 flex-shrink-0">
-        {tickets.length} {statusFilter === 'open' ? 'Open' : statusFilter === 'all' ? 'Total' : statusFilter}
+        {tickets.length}{' '}
+        {statusFilter === 'open' ? 'Open' : statusFilter === 'all' ? 'Total' : statusFilter}
       </div>
 
       {/* Ticket list */}
@@ -423,12 +512,16 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
         ) : tickets.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center px-4">
             <div className="text-5xl mb-3 opacity-50">📧</div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">No tickets found</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Try adjusting filters or search</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              No tickets found
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Try adjusting filters or search
+            </p>
           </div>
         ) : (
           <div className="">
-            {tickets.map(ticket => {
+            {tickets.map((ticket) => {
               const isSelected = selectedTicketId === ticket.ticketId;
               const isUnread = ticket.unreadCount > 0;
               return (
@@ -436,41 +529,69 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
                   key={ticket._id}
                   className={`
                     w-full px-3 py-3 transition-all duration-300 border-b border-gray-100 dark:border-gray-900 cursor-pointer
-                    ${isSelected
-                      ? 'bg-blue-200/40 dark:bg-blue-950/30 border-l-2 border-l-blue-500 dark:border-l-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)] dark:shadow-[0_0_15px_rgba(96,165,250,0.3)]'
-                      : isUnread
+                    ${
+                      isSelected
+                        ? 'bg-blue-200/40 dark:bg-blue-950/30 border-l-2 border-l-blue-500 dark:border-l-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)] dark:shadow-[0_0_15px_rgba(96,165,250,0.3)]'
+                        : isUnread
                         ? 'bg-blue-50/30 dark:bg-blue-950/20 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border-l-4 border-l-transparent'
                         : 'hover:bg-gray-50 dark:hover:bg-gray-900/50 border-l-4 border-l-transparent'
                     }
                   `}
                 >
-                  <div className="flex items-start gap-3" onClick={() => navigate(`./${ticket.ticketId}`)}>
+                  <div
+                    className="flex items-start gap-3"
+                    onClick={() => navigate(`./${ticket.ticketId}`)}
+                  >
                     {/* Avatar/Status indicator */}
                     <div className="flex-shrink-0 mt-0.5">
-                      <div className={`w-2 h-2 rounded-full ${ticket.status === 'open' ? 'bg-green-500' : ticket.status === 'pending' ? 'bg-yellow-500' : 'bg-gray-400'}`}></div>
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          ticket.status === 'open'
+                            ? 'bg-green-500'
+                            : ticket.status === 'pending'
+                            ? 'bg-yellow-500'
+                            : 'bg-gray-400'
+                        }`}
+                      ></div>
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       {/* Top row: customer email/name + time + delete */}
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[13px] text-gray-900 dark:text-gray-100 truncate flex-1 ${isUnread ? 'font-bold' : 'font-medium'}`}>
+                        <span
+                          className={`text-[13px] text-gray-900 dark:text-gray-100 truncate flex-1 ${
+                            isUnread ? 'font-bold' : 'font-medium'
+                          }`}
+                        >
                           {ticket.customerName || ticket.customerEmail || 'Unknown'}
                         </span>
-                        <span className={`text-[11px] text-gray-500 dark:text-gray-400 ${isUnread ? 'font-semibold' : ''}`}>
+                        <TicketWeightageBadge ticketId={ticket.ticketId} />
+                        <span
+                          className={`text-[11px] text-gray-500 dark:text-gray-400 ${
+                            isUnread ? 'font-semibold' : ''
+                          }`}
+                        >
                           {formatTime(ticket.lastActivityAt || ticket.createdAt)}
                         </span>
-                        <button
-                          onClick={(e) => handleDeleteTicket(e, ticket.ticketId, ticket.subject)}
-                          className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors z-10"
-                          title="Delete ticket"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {/* Delete button - Only shown for Admin role */}
+                        {currentUser?.role === 'Admin' && (
+                          <button
+                            onClick={(e) => handleDeleteTicket(e, ticket.ticketId, ticket.subject)}
+                            className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors z-10"
+                            title="Delete ticket"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
 
                       {/* Subject */}
-                      <div className={`text-[13px] text-gray-700 dark:text-gray-300 truncate mb-1 ${isUnread ? 'font-bold' : ''}`}>
+                      <div
+                        className={`text-[13px] text-gray-700 dark:text-gray-300 truncate mb-1 ${
+                          isUnread ? 'font-bold' : ''
+                        }`}
+                      >
                         {ticket.subject || '(no subject)'}
                       </div>
 
@@ -480,7 +601,11 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
                           {ticket.ticketId}
                         </span>
                         {ticket.priority && (
-                          <span className={`text-[10px] px-1.5 py-0.2 rounded ${getPriorityColor(ticket.priority)} font-medium capitalize flex items-center gap-1`}>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded ${getPriorityColor(
+                              ticket.priority
+                            )} font-medium capitalize flex items-center gap-1`}
+                          >
                             {ticket.priority === 'high' && <AlertCircle size={10} />}
                             {ticket.priority === 'medium' && <AlertTriangle size={10} />}
                             {ticket.priority === 'low' && <Info size={10} />}
@@ -490,7 +615,10 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
                         {ticket.tags && ticket.tags.length > 0 && (
                           <div className="flex gap-1">
                             {ticket.tags.slice(0, 2).map((tag, i) => (
-                              <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                              <span
+                                key={i}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                              >
                                 {tag}
                               </span>
                             ))}
@@ -500,16 +628,25 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setAssignModal({ show: true, ticketId: ticket.ticketId, ticketSubject: ticket.subject });
+                              setAssignModal({
+                                show: true,
+                                ticketId: ticket.ticketId,
+                                ticketSubject: ticket.subject,
+                              });
                             }}
                             className="text-[11px] text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1 hover:underline transition-colors"
                             title="Click to reassign"
                           >
                             <UserCheck size={10} />
-                            {ticket.assignedTo.name}{ticket.assignedTo.alias ? ` (${ticket.assignedTo.alias})` : ''}
+                            {ticket.assignedTo.name}
+                            {ticket.assignedTo.alias ? ` (${ticket.assignedTo.alias})` : ''}
                           </button>
                         ) : (
-                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <div
+                            className="flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {/* Show "Take" button for all roles (Agent, QA, TL) */}
                             <button
                               onClick={(e) => handleTakeTicket(e, ticket.ticketId)}
                               className="text-[10px] px-2 py-0.5 rounded bg-blue-500 hover:bg-blue-600 text-white font-medium transition-colors flex items-center gap-1"
@@ -518,14 +655,19 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
                               <UserCheck size={10} />
                               Take
                             </button>
-                            <button
-                              onClick={(e) => handleShowAssignModal(e, ticket.ticketId, ticket.subject)}
-                              className="text-[10px] px-2 py-0.5 rounded bg-gray-500 hover:bg-gray-600 text-white font-medium transition-colors flex items-center gap-1"
-                              title="Assign to someone else"
-                            >
-                              <UserPlus size={10} />
-                              Assign
-                            </button>
+                            {/* Show "Assign" button only for QA and TL */}
+                            {(currentUser?.role === 'QA' || currentUser?.role === 'TL') && (
+                              <button
+                                onClick={(e) =>
+                                  handleShowAssignModal(e, ticket.ticketId, ticket.subject)
+                                }
+                                className="text-[10px] px-2 py-0.5 rounded bg-gray-500 hover:bg-gray-600 text-white font-medium transition-colors flex items-center gap-1"
+                                title="Assign to someone else"
+                              >
+                                <UserPlus size={10} />
+                                Assign
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -542,7 +684,7 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
       {totalPages > 1 && (
         <div className="border-t border-gray-200 dark:border-gray-800 p-2 flex items-center justify-between flex-shrink-0">
           <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
             className="px-3 py-1 text-[12px] text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -552,7 +694,7 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
             Page {page} of {totalPages}
           </span>
           <button
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
             className="px-3 py-1 text-[12px] text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -563,8 +705,11 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
 
       {/* Delete Confirmation Modal */}
       {deleteModal.show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={cancelDelete}>
-          <div 
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={cancelDelete}
+        >
+          <div
             className="bg-white dark:bg-gray-950 rounded-lg shadow-xl max-w-md w-full mx-4 p-6"
             onClick={(e) => e.stopPropagation()}
           >
@@ -602,8 +747,11 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
 
       {/* Assign Ticket Modal - Enhanced Landscape Layout */}
       {assignModal.show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={cancelAssign}>
-          <div 
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={cancelAssign}
+        >
+          <div
             className="bg-white dark:bg-gray-950 rounded-xl shadow-2xl max-w-5xl w-full max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
@@ -624,7 +772,10 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Search Input */}
                 <div className="relative">
-                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Search
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
                   <input
                     type="text"
                     value={agentSearchQuery}
@@ -685,15 +836,15 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
                   <div className="text-center">
                     <p className="text-gray-500 dark:text-gray-400 mb-1">No agents found</p>
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      {agentSearchQuery || roleFilter !== 'all' || departmentFilter !== 'all' 
-                        ? 'Try adjusting your filters' 
+                      {agentSearchQuery || roleFilter !== 'all' || departmentFilter !== 'all'
+                        ? 'Try adjusting your filters'
                         : `Total agents in system: ${agents.length}`}
                     </p>
                   </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {filteredAgents.map(agent => (
+                  {filteredAgents.map((agent) => (
                     <button
                       key={agent._id}
                       onClick={() => handleAssignToAgent(agent._id)}
@@ -703,8 +854,12 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
                         {/* Avatar */}
                         <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 group-hover:scale-110 transition-transform border-2 border-gray-200 dark:border-gray-700 relative">
                           {agent.profileImage && (
-                            <img 
-                              src={agent.profileImage.startsWith('http') ? agent.profileImage : `${IMG_PROFILE_URL}/${agent.profileImage}`}
+                            <img
+                              src={
+                                agent.profileImage.startsWith('http')
+                                  ? agent.profileImage
+                                  : `${IMG_PROFILE_URL}/${agent.profileImage}`
+                              }
                               alt={agent.name}
                               className="w-full h-full object-cover absolute inset-0 z-10"
                               onError={(e) => {
@@ -716,7 +871,7 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
                             {(agent.name || agent.alias || 'A')[0].toUpperCase()}
                           </div>
                         </div>
-                        
+
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-0.5 truncate">
@@ -772,8 +927,13 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
 
       {/* Confirm Assignment Modal */}
       {confirmModal.show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]" onClick={() => setConfirmModal({ show: false, agentId: null, agentName: '', ticketSubject: '' })}>
-          <div 
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]"
+          onClick={() =>
+            setConfirmModal({ show: false, agentId: null, agentName: '', ticketSubject: '' })
+          }
+        >
+          <div
             className="bg-white dark:bg-gray-950 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6"
             onClick={(e) => e.stopPropagation()}
           >
@@ -781,18 +941,16 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
               <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-4">
                 <UserCheck size={24} className="text-blue-600 dark:text-blue-400" />
               </div>
-              
+
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
                 Confirm Assignment
               </h3>
-              
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                Assign this ticket to
-              </p>
+
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Assign this ticket to</p>
               <p className="text-base font-semibold text-blue-600 dark:text-blue-400 mb-3">
                 {confirmModal.agentName}
               </p>
-              
+
               {confirmModal.ticketSubject && (
                 <p className="text-xs text-gray-500 dark:text-gray-500 mb-4 italic line-clamp-2">
                   "{confirmModal.ticketSubject}"
@@ -802,7 +960,9 @@ export default function EmailTicketListView({ view, teamInbox, priority }) {
 
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setConfirmModal({ show: false, agentId: null, agentName: '', ticketSubject: '' })}
+                onClick={() =>
+                  setConfirmModal({ show: false, agentId: null, agentName: '', ticketSubject: '' })
+                }
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 Cancel

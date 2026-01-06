@@ -124,7 +124,7 @@ export default function AdminEmailConfig(){
   };
 
   return (
-    <div className={`p-6 space-y-6 min-h-screen ${isDark ? 'bg-gray-900 text-gray-200' : 'bg-white text-gray-800'}`}>
+    <div className={`p-6 space-y-6 min-h-screen ${isDark ? 'bg-gray-950 text-gray-200' : 'bg-white text-gray-800'}`}>
       <h1 className={`text-xl font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Organization Email Config</h1>
       {err && <div className="text-red-600 dark:text-red-400 text-sm">{err}</div>}
       {loading ? <div className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Loading...</div> : (

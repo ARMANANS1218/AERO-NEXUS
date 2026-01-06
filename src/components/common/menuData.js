@@ -22,7 +22,8 @@ import {
     Calendar,
     ClipboardCheck,
     CalendarDays,
-    FileCheck
+    FileCheck,
+    Key
 } from "lucide-react";
 
 export const menuData = {
@@ -32,6 +33,9 @@ export const menuData = {
         items: [
             {
                 name: "Dashboard", icon: LayoutDashboard, route: "/admin",
+            },
+            {
+                name: "Chat", icon: MessageSquare, route: "/admin/queries",
             },
             {
                 name: "Tickets", icon: Inbox, route: "/admin/ticketing/my-inbox",
@@ -47,6 +51,7 @@ export const menuData = {
                 subMenu: [
                     { name: "Create", icon: UserPlus, route: "/admin/create-employee" },
                     { name: "Manage", icon: UsersRound, route: "/admin/employees" },
+                    { name: "View Passwords", icon: Key, route: "/admin/password-management" },
                 ]
             },
             {
@@ -73,7 +78,6 @@ export const menuData = {
             {
                 name: "Attendance", icon: Calendar,
                 subMenu: [
-                    {name: "Dashboard", icon: LayoutDashboard, route: "/admin/attendance-dashboard"},
                     { name: "Shift Management", icon: Clock, route: "/admin/shift-management" },
                     { name: "Manage Attendance", icon: ClipboardCheck, route: "/admin/attendance-management" },
                     { name: "Holiday Management", icon: CalendarDays, route: "/admin/holiday-management" },
@@ -143,7 +147,7 @@ export const menuData = {
                 subMenu: [
                     { name: "Mark Attendance", icon: Clock, route: "/agent/mark-attendance" },
                     { name: "My Attendance", icon: ClipboardCheck, route: "/agent/my-attendance" },
-                    { name: "Apply Leave", icon: FileText, route: "/agent/leave-apply" },
+                    // { name: "Apply Leave", icon: FileText, route: "/agent/leave-apply" },
                 ]
             },
         ]
@@ -158,9 +162,7 @@ export const menuData = {
             {
                 name: "Chat", icon: MessageSquare, route: "/qa/queries",
             },
-            {
-                name: "Weightage", icon: TrendingUp, route: "/qa/ratings",
-            },
+           
             // {
             //     name: "Chat", icon: MessageSquare, route: "/qa/chat",
             // },
@@ -170,6 +172,9 @@ export const menuData = {
             // {
             //     name: "Calls", icon: Phone, route: "/qa/calls",
             // },
+             {
+                name: "Weightage", icon: TrendingUp, route: "/qa/ratings",
+            },
             {
                 name: "Screenshots", icon: Camera, route: "/qa/screenshots",
             },
@@ -184,7 +189,7 @@ export const menuData = {
                 subMenu: [
                     { name: "Mark Attendance", icon: Clock, route: "/qa/mark-attendance" },
                     { name: "My Attendance", icon: ClipboardCheck, route: "/qa/my-attendance" },
-                    { name: "Apply Leave", icon: FileText, route: "/qa/leave-apply" },
+                    // { name: "Apply Leave", icon: FileText, route: "/qa/leave-apply" },
                 ]
             },
             // {
@@ -209,11 +214,11 @@ export const menuData = {
                 subMenu: [
                     { name: "Mark Attendance", icon: Clock, route: "/tl/mark-attendance" },
                     { name: "My Attendance", icon: ClipboardCheck, route: "/tl/my-attendance" },
-                    { name: "Shift Management", icon: Clock, route: "/tl/shift-management" },
-                    { name: "Manage Attendance", icon: ClipboardCheck, route: "/tl/attendance-management" },
-                    { name: "Holiday Management", icon: CalendarDays, route: "/tl/holiday-management" },
-                    { name: "Leave Management", icon: FileCheck, route: "/tl/leave-management" },
-                    { name: "Apply Leave", icon: FileText, route: "/tl/leave-apply" },
+                    // { name: "Shift Management", icon: Clock, route: "/tl/shift-management" },
+                    // { name: "Manage Attendance", icon: ClipboardCheck, route: "/tl/attendance-management" },
+                    // { name: "Holiday Management", icon: CalendarDays, route: "/tl/holiday-management" },
+                    // { name: "Leave Management", icon: FileCheck, route: "/tl/leave-management" },
+                    // { name: "Apply Leave", icon: FileText, route: "/tl/leave-apply" },
                 ]
             },
             {

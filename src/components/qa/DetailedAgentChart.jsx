@@ -126,14 +126,10 @@ export default function DetailedAgentChart({ agentId, agentName, onClose }) {
                 <td style="padding: 10px; text-align: center; font-weight: bold; color: #1F2937;">${evaluation.toolEfficiency?.score || 0}%</td>
               </tr>
               <tr style="background: #FFFFFF; border-bottom: 1px solid #E5E7EB;">
-                <td style="padding: 10px; font-weight: 600; color: #374151; text-transform: capitalize;">Tagging Accuracy</td>
-                <td style="padding: 10px; text-align: center; font-weight: bold; color: #1F2937;">${evaluation.tagging?.score || 0}%</td>
-              </tr>
-              <tr style="background: #F9FAFB; border-bottom: 1px solid #E5E7EB;">
                 <td style="padding: 10px; font-weight: 600; color: #374151; text-transform: capitalize;">Escalation Handling</td>
                 <td style="padding: 10px; text-align: center; font-weight: bold; color: #1F2937;">${evaluation.escalation?.score || 0}%</td>
               </tr>
-              <tr style="background: #FFFFFF; border-bottom: 1px solid #E5E7EB;">
+              <tr style="background: #F9FAFB; border-bottom: 1px solid #E5E7EB;">
                 <td style="padding: 10px; font-weight: 600; color: #374151; text-transform: capitalize;">Documentation Quality</td>
                 <td style="padding: 10px; text-align: center; font-weight: bold; color: #1F2937;">${evaluation.documentation?.score || 0}%</td>
               </tr>
@@ -191,7 +187,6 @@ export default function DetailedAgentChart({ agentId, agentName, onClose }) {
     'personalization',
     'flow',
     'toolEfficiency',
-    'tagging',
     'escalation',
     'documentation',
   ];
@@ -305,17 +300,13 @@ export default function DetailedAgentChart({ agentId, agentName, onClose }) {
           </div>
 
           {/* Charts Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
-            {/* Metrics Breakdown */}
-            <div className="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg p-1.5">
+          <div className="grid grid-cols-1 gap-1.5">
+            {/* Metrics Breakdown - Full Width */}
+            <div className="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg p-1.5" style={{ height: '250px' }}>
               <h4 className="text-xs font-bold text-gray-900 dark:text-gray-100 mb-1.5 uppercase">Avg Metric Scores</h4>
-              <Bar data={metricsChartData} options={chartOptions} />
-            </div>
-
-            {/* Timeline/Trend */}
-            <div className="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-lg p-1.5">
-              <h4 className="text-xs font-bold text-gray-900 dark:text-gray-100 mb-1.5 uppercase">Score Trend Over Time</h4>
-              <Line data={timelineChartData} options={chartOptions} />
+              <div style={{ height: 'calc(100% - 30px)' }}>
+                <Line data={metricsChartData} options={{ ...chartOptions, maintainAspectRatio: false }} />
+              </div>
             </div>
           </div>
 
@@ -343,7 +334,6 @@ export default function DetailedAgentChart({ agentId, agentName, onClose }) {
                     <th className="px-1 py-1 text-left text-xs font-bold text-gray-700 dark:text-gray-200 uppercase">Pers</th>
                     <th className="px-1 py-1 text-left text-xs font-bold text-gray-700 dark:text-gray-200 uppercase">Flow</th>
                     <th className="px-1 py-1 text-left text-xs font-bold text-gray-700 dark:text-gray-200 uppercase">Tool</th>
-                    <th className="px-1 py-1 text-left text-xs font-bold text-gray-700 dark:text-gray-200 uppercase">Tag</th>
                     <th className="px-1 py-1 text-left text-xs font-bold text-gray-700 dark:text-gray-200 uppercase">Esc</th>
                     <th className="px-1 py-1 text-left text-xs font-bold text-gray-700 dark:text-gray-200 uppercase">Doc</th>
                     <th className="px-1 py-1 text-left text-xs font-bold text-gray-700 dark:text-gray-200 uppercase">Remarks</th>
@@ -387,7 +377,6 @@ export default function DetailedAgentChart({ agentId, agentName, onClose }) {
                         <td className="px-1 py-1 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">{ev.personalization?.score || 0}%</td>
                         <td className="px-1 py-1 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">{ev.flow?.score || 0}%</td>
                         <td className="px-1 py-1 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">{ev.toolEfficiency?.score || 0}%</td>
-                        <td className="px-1 py-1 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">{ev.tagging?.score || 0}%</td>
                         <td className="px-1 py-1 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">{ev.escalation?.score || 0}%</td>
                         <td className="px-1 py-1 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">{ev.documentation?.score || 0}%</td>
                         <td className="px-1 py-1 text-xs text-gray-900 dark:text-gray-100 max-w-xs truncate">

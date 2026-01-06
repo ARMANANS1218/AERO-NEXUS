@@ -16,6 +16,7 @@ const QAActivity = () => {
     const loginTime = qa.login_time ? new Date(qa.login_time) : null;
     const logoutTime = qa.logout_time ? new Date(qa.logout_time) : null;
     const breakLogs = qa.breakLogs || [];
+    const activeTime = qa.activeTime || 0;
     
     // Calculate total break duration
     let totalBreakMinutes = 0;
@@ -27,13 +28,6 @@ const QAActivity = () => {
       }
     });
     
-    // Calculate active time (login to logout minus breaks)
-    let activeMinutes = 0;
-    if (loginTime) {
-      const endTime = logoutTime || new Date(); // Use current time if still active
-      const totalMinutes = Math.floor((endTime - loginTime) / 60000);
-      activeMinutes = Math.max(0, totalMinutes - totalBreakMinutes);
-    }
     
     return {
       ...qa,
@@ -42,7 +36,7 @@ const QAActivity = () => {
         logoutTime: logoutTime,
         totalBreaks: breakLogs.length,
         breakDuration: totalBreakMinutes,
-        activeTime: activeMinutes,
+        activeTime: activeTime,
         idleTime: 0, // Can be calculated based on workStatus changes if tracked
       }
     };

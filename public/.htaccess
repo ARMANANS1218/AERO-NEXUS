@@ -1,10 +1,10 @@
 # Vite React SPA rewrite rules for cPanel/Apache
 # Place this .htaccess inside /public so it is copied to dist/
-# Upload dist contents into /UTC/99810035/ on the server.
+# Upload dist contents into /118029-TX/ on the server.
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /UTC/99810035/
+  RewriteBase /118029-TX/
 
   # Allow existing files and directories
   RewriteCond %{REQUEST_FILENAME} -f [OR]
@@ -16,15 +16,15 @@
   RewriteRule ^ - [L]
 
   # Allow requests to /assets/ directory (Vite output chunks)
-  RewriteCond %{REQUEST_URI} ^/UTC/99810035/assets/
+  RewriteCond %{REQUEST_URI} ^/118029-TX/assets/
   RewriteRule ^ - [L]
 
   # Allow specific routes that don't need rewriting
-  RewriteCond %{REQUEST_URI} ^/UTC/99810035/(api|geocam|public)/ [NC]
+  RewriteCond %{REQUEST_URI} ^/118029-TX/(api|geocam|public)/ [NC]
   RewriteRule ^ - [L]
 
   # Route all other requests to index.html for SPA client routing
-  RewriteRule ^ /UTC/99810035/index.html [L]
+  RewriteRule ^ /118029-TX/index.html [L]
 </IfModule>
 
 # Add MIME types for assets

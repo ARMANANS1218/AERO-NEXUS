@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useGetProfileQuery } from '../../../features/auth/authApi';
 import { User, Mail, Phone, MapPin, Calendar, Monitor, Globe, Eye } from 'lucide-react';
 
-export default function Profile() {
+export default function TLProfile() {
   const { data, isLoading } = useGetProfileQuery();
   const user = data?.data;
 
@@ -73,14 +73,14 @@ export default function Profile() {
                     className="w-full h-full object-cover" 
                   />
                 ) : (
-                  user?.name?.charAt(0)?.toUpperCase() || 'A'
+                  user?.name?.charAt(0)?.toUpperCase() || 'T'
                 )}
               </div>
               <div className="flex-1 text-center sm:text-left">
                 <h2 className="text-xl sm:text-2xl font-bold text-white mb-1 sm:mb-2">{user?.name || 'N/A'}</h2>
                 <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
                   <span className="px-3 py-1 bg-white/20 backdrop-blur-sm text-white rounded-full text-xs sm:text-sm font-medium">
-                    {user?.role || 'Agent'}
+                    {user?.role || 'Team Lead'}
                   </span>
                   {user?.alias && (
                     <span className="text-xs sm:text-sm text-white/90">Alias: <span className="font-medium text-white">{user.alias}</span></span>
@@ -95,7 +95,7 @@ export default function Profile() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
               {/* Left Column */}
               <div className="space-y-6">
-                <DetailRow icon={<User className="w-5 h-5" />} label="Role" value={user?.role || 'Agent'} />
+                <DetailRow icon={<User className="w-5 h-5" />} label="Role" value={user?.role || 'Team Lead'} />
                 <DetailRow icon={<Mail className="w-5 h-5" />} label="Email" value={user?.email || 'N/A'} />
                 <DetailRow icon={<Phone className="w-5 h-5" />} label="Mobile" value={user?.mobile || 'N/A'} />
                 <DetailRow icon={<User className="w-5 h-5" />} label="Username" value={user?.user_name || 'N/A'} />
@@ -144,7 +144,7 @@ export default function Profile() {
         </div>
 
         {/* Info Message */}
-        <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mt-6">
+        <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
           <div className="flex items-start gap-3">
             <Eye className="w-5 h-5 text-slate-600 dark:text-slate-400 mt-0.5 flex-shrink-0" />
             <div>

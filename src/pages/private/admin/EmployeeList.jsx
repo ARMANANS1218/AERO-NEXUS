@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { CircularProgress, Avatar, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tooltip } from '@mui/material';
-import { Edit, Delete, Block, CheckCircle, Refresh, Search, Visibility, Lock, LockOpen, ContentCopy, VpnKey, VisibilityOff } from '@mui/icons-material';
+import { CircularProgress, Avatar, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tooltip, TextField } from '@mui/material';
+import { Edit, Delete, Block, CheckCircle, Refresh, Search, Visibility, Lock, LockOpen, ContentCopy, VpnKey, VisibilityOff, NetworkCheck } from '@mui/icons-material';
 import { toast } from 'react-toastify';
-import { useGetAllEmployeesQuery, useUpdateEmployeeStatusMutation, useUnblockLoginAccountMutation, useDeleteEmployeeMutation, useResetEmployeePasswordMutation } from '../../../features/admin/adminApi';
+import { useGetAllEmployeesQuery, useUpdateEmployeeStatusMutation, useUnblockLoginAccountMutation, useUpdateAuthorizedIPMutation, useDeleteEmployeeMutation, useResetEmployeePasswordMutation } from '../../../features/admin/adminApi';
 import { useNavigate } from 'react-router-dom';
 
 const EmployeeList = () => {
@@ -17,10 +17,12 @@ const EmployeeList = () => {
   const [deleteDialog, setDeleteDialog] = useState({ open: false, employee: null });
   const [viewDialog, setViewDialog] = useState({ open: false, employee: null });
   const [passwordDialog, setPasswordDialog] = useState({ open: false, employee: null, mode: 'auto', password: '', showCurrentPassword: false, showNewPassword: false });
+  const [ipDialog, setIpDialog] = useState({ open: false, employee: null, newIP: '' });
 
   const { data: employeesData, isLoading, refetch } = useGetAllEmployeesQuery();
   const [updateStatus] = useUpdateEmployeeStatusMutation();
   const [unblockLogin] = useUnblockLoginAccountMutation();
+  const [updateAuthorizedIP] = useUpdateAuthorizedIPMutation();
   const [deleteEmployee] = useDeleteEmployeeMutation();
   const [resetPassword] = useResetEmployeePasswordMutation();
 
@@ -49,8 +51,8 @@ const EmployeeList = () => {
       const matchesRole = roleFilter === 'All' || emp.role === roleFilter;
       const matchesStatus =
         statusFilter === 'All' ||
-        (statusFilter === 'Online' && emp.is_active) ||
-        (statusFilter === 'Offline' && !emp.is_active);
+        (statusFilter === 'Online' && emp.is_active && !emp.logout_time) ||
+        (statusFilter === 'Offline' && (emp.logout_time || !emp.is_active));
       const matchesTier =
         tierFilter === 'All' || (emp.tier ? emp.tier === tierFilter : false);
       const matchesBlocked =
@@ -73,7 +75,7 @@ const EmployeeList = () => {
     const agents = employees.filter((e) => e.role === 'Agent').length;
     const qa = employees.filter((e) => e.role === 'QA').length;
     const tl = employees.filter((e) => e.role === 'TL').length;
-    const online = employees.filter((e) => e.is_active).length;
+    const online = employees.filter((e) => e.is_active && !e.logout_time).length;
     const blocked = employees.filter((e) => e.isBlocked).length;
     
     return { admins, agents, qa, tl, online, blocked, total: employees.length };
@@ -102,6 +104,33 @@ const EmployeeList = () => {
       } catch (error) {
         toast.error('Failed to unblock account');
       }
+    }
+  };
+
+  const handleUpdateIP = async () => {
+    if (!ipDialog.newIP || !ipDialog.newIP.trim()) {
+      toast.error('Please enter a valid IP address');
+      return;
+    }
+
+    // Basic IP validation
+    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    if (!ipRegex.test(ipDialog.newIP.trim())) {
+      toast.error('Invalid IP address format');
+      return;
+    }
+
+    try {
+      const response = await updateAuthorizedIP({ 
+        employeeId: ipDialog.employee._id, 
+        newIP: ipDialog.newIP.trim() 
+      }).unwrap();
+      
+      toast.success(response.message || 'Authorized IP updated successfully');
+      setIpDialog({ open: false, employee: null, newIP: '' });
+      refetch();
+    } catch (error) {
+      toast.error(error?.data?.message || 'Failed to update authorized IP');
     }
   };
 
@@ -152,45 +181,45 @@ const EmployeeList = () => {
   );
 
   return (
-    <div className="p-6">
+    <div className="p-6 min-h-screen bg-gray-50 dark:bg-gray-950">
       <h1 className="text-4xl font-bold mb-6 text-gray-900 dark:text-white">
         Employee Management
       </h1>
 
       {/* Stats Cards */}
   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 mb-6">
-        <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
           <h3 className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.total}</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
         </div>
-        <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
           <h3 className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.admins}</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">Admins</p>
         </div>
-        <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
           <h3 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stats.agents}</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">Agents</p>
         </div>
-        <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
           <h3 className="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.qa}</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">QA</p>
         </div>
-        <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
           <h3 className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.tl}</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">TL</p>
         </div>
-        <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm">
+        <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
           <h3 className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.online}</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">Online</p>
         </div>
-        <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-red-300 dark:border-red-700 shadow-sm">
+        <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 shadow-sm">
           <h3 className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.blocked}</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">🔒 Blocked</p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="p-2 mb-6 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm">
+      <div className="p-2 mb-6 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="flex flex-wrap gap-2 items-center">
           {/* Search */}
           <div className="flex-1 min-w-[200px] relative">
@@ -277,11 +306,14 @@ const EmployeeList = () => {
       </div>
 
       {/* Employee Table */}
-      <div className="rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div className="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-slate-700 border-b border-gray-200 dark:border-slate-600">
+            <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
               <tr>
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-tight">
+                  SL No
+                </th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-tight">
                   Employee
                 </th>
@@ -318,12 +350,15 @@ const EmployeeList = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
-              {paginatedEmployees.map((employee) => (
+              {paginatedEmployees.map((employee, index) => (
                 <tr key={employee._id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
+                  <td className="px-2 py-2 text-sm text-gray-900 dark:text-white">
+                    {page * rowsPerPage + index + 1}
+                  </td>
                   <td className="px-2 py-2">
                     <div className="flex items-center gap-2">
                       <Avatar
-                        src={employee.profileImage}
+                        src={employee.profileImage?.startsWith('http') ? employee.profileImage : `${import.meta.env.VITE_API_URL || ''}${employee.profileImage}`}
                         alt={employee.name}
                         className="w-8 h-8 bg-blue-500"
                       >
@@ -358,11 +393,13 @@ const EmployeeList = () => {
                   </td>
                   <td className="px-2 py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      employee.is_active 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400'
+                      employee.logout_time
+                        ? 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400'
+                        : employee.is_active 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400'
                     }`}>
-                      {employee.is_active ? 'Online' : 'Offline'}
+                      {employee.logout_time ? 'Offline' : (employee.is_active ? 'Online' : 'Offline')}
                     </span>
                   </td>
                   <td className="px-2 py-2">
@@ -417,6 +454,16 @@ const EmployeeList = () => {
                         </button>
                       )}
                       
+                      {(employee.role === 'Agent' || employee.role === 'TL' || employee.role === 'QA') && (
+                        <button
+                          onClick={() => setIpDialog({ open: true, employee, newIP: employee.ip || '' })}
+                          className="p-1 rounded text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                          title="Update Authorized IP"
+                        >
+                          <NetworkCheck sx={{ fontSize: 18 }} />
+                        </button>
+                      )}
+                      
                       <button
                         onClick={() => handleView(employee)}
                         className="p-1 rounded text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
@@ -461,16 +508,37 @@ const EmployeeList = () => {
         </div>
 
         {/* Pagination */}
-        <div className="px-6 py-4 bg-gray-50 dark:bg-slate-700 border-t border-gray-200 dark:border-slate-600 flex items-center justify-between">
-          <p className="text-sm text-gray-700 dark:text-gray-300">
-            Showing {page * rowsPerPage + 1} to {Math.min((page + 1) * rowsPerPage, filteredEmployees.length)} of {filteredEmployees.length} entries
-          </p>
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              Showing {page * rowsPerPage + 1} to {Math.min((page + 1) * rowsPerPage, filteredEmployees.length)} of {filteredEmployees.length} entries
+            </p>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-700 dark:text-gray-300">Show:</label>
+              <select
+                value={rowsPerPage}
+                onChange={(e) => {
+                  setRowsPerPage(Number(e.target.value));
+                  setPage(0);
+                }}
+                className="px-3 py-2 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300
+                  border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700
+                  focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={75}>75</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => handleChangePage(page - 1)}
               disabled={page === 0}
-              className="px-4 py-2 rounded-lg bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300
-                border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700
+              className="px-4 py-2 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300
+                border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700
                 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Previous
@@ -478,8 +546,8 @@ const EmployeeList = () => {
             <button
               onClick={() => handleChangePage(page + 1)}
               disabled={page >= totalPages - 1}
-              className="px-4 py-2 rounded-lg bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300
-                border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700
+              className="px-4 py-2 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300
+                border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700
                 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
@@ -507,7 +575,7 @@ const EmployeeList = () => {
               {/* Profile Section */}
               <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-slate-700 rounded-lg">
                 <Avatar
-                  src={viewDialog.employee.profileImage}
+                  src={viewDialog.employee.profileImage?.startsWith('http') ? viewDialog.employee.profileImage : `${import.meta.env.VITE_API_URL || ''}${viewDialog.employee.profileImage}`}
                   alt={viewDialog.employee.name}
                   className="w-20 h-20 bg-blue-500"
                   sx={{ width: 80, height: 80 }}
@@ -814,6 +882,124 @@ const EmployeeList = () => {
               disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Save Password
+          </button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Update Authorized IP Dialog */}
+      <Dialog 
+        open={ipDialog.open} 
+        onClose={() => setIpDialog({ open: false, employee: null, newIP: '' })}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          className: "bg-white dark:bg-slate-800 rounded-xl shadow-2xl"
+        }}
+      >
+        <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white pb-2 border-b border-gray-200 dark:border-slate-700">
+          <div className="flex items-center gap-2">
+            <NetworkCheck className="text-indigo-600 dark:text-indigo-400" />
+            Update Authorized IP
+          </div>
+        </DialogTitle>
+        <DialogContent className="pt-4">
+          <div className="space-y-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                <strong>{ipDialog.employee?.name}</strong> ({ipDialog.employee?.role})
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                {ipDialog.employee?.email}
+              </p>
+            </div>
+
+            {ipDialog.employee?.ip && (
+              <div className="bg-gray-50 dark:bg-slate-700 rounded-lg p-3">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Current Authorized IP:</p>
+                <p className="text-sm font-mono font-semibold text-gray-900 dark:text-white">
+                  {ipDialog.employee.ip}
+                </p>
+              </div>
+            )}
+
+            <TextField
+              fullWidth
+              label="New Authorized IP Address"
+              placeholder="e.g., 103.154.247.122"
+              value={ipDialog.newIP}
+              onChange={(e) => setIpDialog({ ...ipDialog, newIP: e.target.value })}
+              className="bg-white dark:bg-slate-700"
+              InputLabelProps={{
+                className: "text-gray-700 dark:text-gray-300"
+              }}
+              InputProps={{
+                className: "text-gray-900 dark:text-white font-mono"
+              }}
+            />
+
+            {ipDialog.employee?.isBlocked && (
+              <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <Lock className="text-red-600 dark:text-red-400" fontSize="small" />
+                  <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+                    Account is Currently Blocked
+                  </p>
+                </div>
+                <p className="text-xs text-red-600 dark:text-red-400">
+                  Reason: {ipDialog.employee?.blockedReason || 'Multiple failed login attempts'}
+                </p>
+                {ipDialog.employee?.blockedAt && (
+                  <p className="text-xs text-red-500 dark:text-red-500 mt-1">
+                    Blocked at: {new Date(ipDialog.employee.blockedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+              <p className="text-xs text-amber-800 dark:text-amber-300">
+                ⚠️ <strong>Note:</strong> This user will only be able to login from the new IP address after this update.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions className="p-4 border-t border-gray-200 dark:border-slate-700 gap-2">
+          <button
+            onClick={() => setIpDialog({ open: false, employee: null, newIP: '' })}
+            className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 
+              hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors"
+          >
+            Cancel
+          </button>
+          
+          {ipDialog.employee?.isBlocked && (
+            <button
+              onClick={async () => {
+                try {
+                  await unblockLogin(ipDialog.employee._id).unwrap();
+                  toast.success(`${ipDialog.employee.name}'s account unblocked successfully`);
+                  setIpDialog({ open: false, employee: null, newIP: '' });
+                  refetch();
+                } catch (error) {
+                  toast.error('Failed to unblock account');
+                }
+              }}
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white
+                hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-2"
+            >
+              <LockOpen fontSize="small" />
+              Unblock ID
+            </button>
+          )}
+          
+          <button
+            onClick={handleUpdateIP}
+            disabled={!ipDialog.newIP}
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 text-white
+              hover:from-indigo-700 hover:to-blue-700 transition-all
+              disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Update IP
           </button>
         </DialogActions>
       </Dialog>

@@ -45,7 +45,7 @@ export default function EmailPage() {
 
           {/* Go Home Button */}
           <button
-            onClick={() => navigate('/UTC/99810035')}
+            onClick={() => navigate('/118029-TX')}
             className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 
               hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg 
               hover:shadow-xl transform hover:scale-105 transition-all duration-200"

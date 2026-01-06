@@ -124,7 +124,7 @@ export default function AdminProfile() {
             <div className="flex-shrink-0">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold overflow-hidden">
                 {user?.profileImage ? (
-                  <img src={`${user?.profileImage?.startsWith('http') ? user.profileImage : `${process.env.REACT_APP_API_URL}${user?.profileImage}`}`} alt={user?.name} className="w-full h-full object-cover" />
+                  <img src={`${user?.profileImage?.startsWith('http') ? user.profileImage : `${import.meta.env.VITE_API_URL || ''}${user?.profileImage}`}`} alt={user?.name} className="w-full h-full object-cover" />
                 ) : (
                   user?.name?.charAt(0) || user?.user_name?.charAt(0) || 'U'
                 )}

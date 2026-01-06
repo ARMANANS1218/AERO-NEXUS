@@ -24,7 +24,15 @@ const EditEmployee = () => {
     department: '',
     tier: '',
     alias: '',
-    address: '',
+    address: {
+      street: '',
+      locality: '',
+      city: '',
+      state: '',
+      country: '',
+      postalCode: '',
+      landmark: '',
+    },
     employee_id: '',
     profileImage: null,
   });
@@ -42,12 +50,24 @@ const EditEmployee = () => {
         department: employeeData.department || '',
         tier: employeeData.tier || '',
         alias: employeeData.alias || '',
-        address: employeeData.address || '',
+        address: employeeData.address || {
+          street: '',
+          locality: '',
+          city: '',
+          state: '',
+          country: '',
+          postalCode: '',
+          landmark: '',
+        },
         employee_id: employeeData.employee_id || '',
         profileImage: null,
       });
       if (employeeData.profileImage) {
-        setProfilePreview(employeeData.profileImage);
+        // Check if it's a Cloudinary URL or local path
+        const imageUrl = employeeData.profileImage.startsWith('http')
+          ? employeeData.profileImage
+          : `${import.meta.env.VITE_API_URL || ''}${employeeData.profileImage}`;
+        setProfilePreview(imageUrl);
       }
     }
   }, [employeeData]);
@@ -57,6 +77,17 @@ const EditEmployee = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleAddressChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      address: { ...prev.address, [name]: value },
+    }));
+    if (errors[`address.${name}`]) {
+      setErrors((prev) => ({ ...prev, [`address.${name}`]: '' }));
     }
   };
 
@@ -79,11 +110,15 @@ const EditEmployee = () => {
     if (formData.password && formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
-    if (['Agent','QA','TL'].includes(formData.role)) {
+    if (['Agent', 'QA', 'TL'].includes(formData.role)) {
       if (!formData.department.trim()) newErrors.department = 'Department is required';
       if (!formData.tier.trim()) newErrors.tier = 'Tier is required';
       if (!formData.alias.trim()) newErrors.alias = 'Alias is required';
     }
+
+    // Address Validation
+    if (!formData.address?.city?.trim()) newErrors['address.city'] = 'City is required';
+    if (!formData.address?.country?.trim()) newErrors['address.country'] = 'Country is required';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -101,6 +136,8 @@ const EditEmployee = () => {
       Object.keys(formData).forEach((key) => {
         if (key === 'profileImage' && formData[key]) {
           formDataToSend.append('profileImage', formData[key]);
+        } else if (key === 'address') {
+          formDataToSend.append('address', JSON.stringify(formData[key]));
         } else if (key !== 'profileImage' && formData[key]) {
           // Only send password if it's not empty
           if (key === 'password' && !formData[key]) return;
@@ -173,7 +210,9 @@ const EditEmployee = () => {
                 } bg-white dark:bg-slate-700 text-gray-900 dark:text-white
                 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent`}
               />
-              {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>
+              )}
             </div>
 
             {/* Role (now includes TL) */}
@@ -190,7 +229,9 @@ const EditEmployee = () => {
                 className={`w-full px-4 py-2 rounded-lg border bg-gray-100 dark:bg-slate-600 cursor-not-allowed
                   border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white`}
               />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Email cannot be changed</p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Email cannot be changed
+              </p>
             </div>
 
             {/* Mobile */}
@@ -210,7 +251,9 @@ const EditEmployee = () => {
                 } bg-white dark:bg-slate-700 text-gray-900 dark:text-white
                 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent`}
               />
-              {errors.mobile && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.mobile}</p>}
+              {errors.mobile && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.mobile}</p>
+              )}
             </div>
 
             {/* Employee ID */}
@@ -227,7 +270,9 @@ const EditEmployee = () => {
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 
                   bg-gray-100 dark:bg-slate-600 text-gray-900 dark:text-white cursor-not-allowed"
               />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Employee ID cannot be changed</p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Employee ID cannot be changed
+              </p>
             </div>
 
             {/* Role */}
@@ -241,8 +286,8 @@ const EditEmployee = () => {
                 onChange={(e) => {
                   handleChange(e);
                   const value = e.target.value;
-                  if (!['Agent','QA','TL'].includes(value)) {
-                    setFormData(prev => ({ ...prev, tier: '', alias: '' }));
+                  if (!['Agent', 'QA', 'TL'].includes(value)) {
+                    setFormData((prev) => ({ ...prev, tier: '', alias: '' }));
                   }
                 }}
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 
@@ -257,77 +302,83 @@ const EditEmployee = () => {
             </div>
 
             {/* Department (only for Agent/QA/TL) */}
-            {['Agent','QA','TL'].includes(formData.role) && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Department *
-              </label>
-              <input
-                type="text"
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  errors.department
-                    ? 'border-red-500 dark:border-red-500'
-                    : 'border-gray-300 dark:border-slate-600'
-                } bg-white dark:bg-slate-700 text-gray-900 dark:text-white
+            {['Agent', 'QA', 'TL'].includes(formData.role) && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Department *
+                </label>
+                <input
+                  type="text"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 rounded-lg border ${
+                    errors.department
+                      ? 'border-red-500 dark:border-red-500'
+                      : 'border-gray-300 dark:border-slate-600'
+                  } bg-white dark:bg-slate-700 text-gray-900 dark:text-white
                 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent`}
-              />
-              {errors.department && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.department}</p>}
-            </div>
+                />
+                {errors.department && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.department}</p>
+                )}
+              </div>
             )}
 
             {/* Tier (only for Agent/QA/TL) */}
-            {['Agent','QA','TL'].includes(formData.role) && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Tier *
-              </label>
-              <select
-                name="tier"
-                value={formData.tier}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  errors.tier
-                    ? 'border-red-500 dark:border-red-500'
-                    : 'border-gray-300 dark:border-slate-600'
-                } bg-white dark:bg-slate-700 text-gray-900 dark:text-white
+            {['Agent', 'QA', 'TL'].includes(formData.role) && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Tier *
+                </label>
+                <select
+                  name="tier"
+                  value={formData.tier}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 rounded-lg border ${
+                    errors.tier
+                      ? 'border-red-500 dark:border-red-500'
+                      : 'border-gray-300 dark:border-slate-600'
+                  } bg-white dark:bg-slate-700 text-gray-900 dark:text-white
                 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent`}
-              >
-                <option value="">Select tier</option>
-                <option value="Tier-1">Tier-1</option>
-                <option value="Tier-2">Tier-2</option>
-                <option value="Tier-3">Tier-3</option>
-              </select>
-              {errors.tier && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.tier}</p>}
-            </div>
+                >
+                  <option value="">Select tier</option>
+                  <option value="Tier-1">Tier-1</option>
+                  <option value="Tier-2">Tier-2</option>
+                  <option value="Tier-3">Tier-3</option>
+                </select>
+                {errors.tier && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.tier}</p>
+                )}
+              </div>
             )}
 
             {/* Alias (only for Agent/QA/TL) */}
-            {['Agent','QA','TL'].includes(formData.role) && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Alias Name *
-                <span className="text-xs text-gray-500 dark:text-gray-400 block font-normal">
-                  This name will be shown in chat conversations and tickets
-                </span>
-              </label>
-              <input
-                type="text"
-                name="alias"
-                value={formData.alias}
-                onChange={handleChange}
-                placeholder={`e.g., Agent ${formData.name.split(' ')[0] || 'John'}`}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  errors.alias
-                    ? 'border-red-500 dark:border-red-500'
-                    : 'border-gray-300 dark:border-slate-600'
-                } bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400
+            {['Agent', 'QA', 'TL'].includes(formData.role) && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Alias Name *
+                  <span className="text-xs text-gray-500 dark:text-gray-400 block font-normal">
+                    This name will be shown in chat conversations and tickets
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  name="alias"
+                  value={formData.alias}
+                  onChange={handleChange}
+                  placeholder={`e.g., Agent ${formData.name.split(' ')[0] || 'John'}`}
+                  className={`w-full px-4 py-2 rounded-lg border ${
+                    errors.alias
+                      ? 'border-red-500 dark:border-red-500'
+                      : 'border-gray-300 dark:border-slate-600'
+                  } bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400
                 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent`}
-              />
-              {errors.alias && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.alias}</p>}
-            </div>
+                />
+                {errors.alias && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.alias}</p>
+                )}
+              </div>
             )}
             {/* Password */}
             <div>
@@ -352,26 +403,150 @@ const EditEmployee = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400"
                 >
-                  {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                  {showPassword ? (
+                    <VisibilityOff fontSize="small" />
+                  ) : (
+                    <Visibility fontSize="small" />
+                  )}
                 </button>
               </div>
-              {errors.password && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>
+              )}
             </div>
 
-            {/* Address */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Address
-              </label>
-              <textarea
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 
-                  bg-white dark:bg-slate-700 text-gray-900 dark:text-white
-                  focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
-              />
+            {/* Address Section */}
+            <div className="md:col-span-2 space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Address Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Street */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Street Address
+                  </label>
+                  <input
+                    type="text"
+                    name="street"
+                    value={formData.address?.street || ''}
+                    onChange={handleAddressChange}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 
+                      bg-white dark:bg-slate-700 text-gray-900 dark:text-white
+                      focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Locality */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Locality
+                  </label>
+                  <input
+                    type="text"
+                    name="locality"
+                    value={formData.address?.locality || ''}
+                    onChange={handleAddressChange}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 
+                      bg-white dark:bg-slate-700 text-gray-900 dark:text-white
+                      focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Landmark */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Landmark
+                  </label>
+                  <input
+                    type="text"
+                    name="landmark"
+                    value={formData.address?.landmark || ''}
+                    onChange={handleAddressChange}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 
+                      bg-white dark:bg-slate-700 text-gray-900 dark:text-white
+                      focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
+                  />
+                </div>
+
+                {/* City */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    City *
+                  </label>
+                  <input
+                    type="text"
+                    name="city"
+                    value={formData.address?.city || ''}
+                    onChange={handleAddressChange}
+                    className={`w-full px-4 py-2 rounded-lg border ${
+                      errors['address.city']
+                        ? 'border-red-500 dark:border-red-500'
+                        : 'border-gray-300 dark:border-slate-600'
+                    } bg-white dark:bg-slate-700 text-gray-900 dark:text-white
+                    focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent`}
+                  />
+                  {errors['address.city'] && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors['address.city']}
+                    </p>
+                  )}
+                </div>
+
+                {/* State */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    name="state"
+                    value={formData.address?.state || ''}
+                    onChange={handleAddressChange}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 
+                      bg-white dark:bg-slate-700 text-gray-900 dark:text-white
+                      focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Country */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Country *
+                  </label>
+                  <input
+                    type="text"
+                    name="country"
+                    value={formData.address?.country || ''}
+                    onChange={handleAddressChange}
+                    className={`w-full px-4 py-2 rounded-lg border ${
+                      errors['address.country']
+                        ? 'border-red-500 dark:border-red-500'
+                        : 'border-gray-300 dark:border-slate-600'
+                    } bg-white dark:bg-slate-700 text-gray-900 dark:text-white
+                    focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent`}
+                  />
+                  {errors['address.country'] && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors['address.country']}
+                    </p>
+                  )}
+                </div>
+
+                {/* Postal Code */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    name="postalCode"
+                    value={formData.address?.postalCode || ''}
+                    onChange={handleAddressChange}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 
+                      bg-white dark:bg-slate-700 text-gray-900 dark:text-white
+                      focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -384,7 +559,11 @@ const EditEmployee = () => {
                 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed
                 flex items-center justify-center gap-2"
             >
-              {isLoading ? <CircularProgress size={20} className="text-white" /> : 'Update Employee'}
+              {isLoading ? (
+                <CircularProgress size={20} className="text-white" />
+              ) : (
+                'Update Employee'
+              )}
             </button>
             <button
               type="button"

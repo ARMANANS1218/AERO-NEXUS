@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSuperAdmin } from '../../context/SuperAdminContext';
 import { FaUserShield, FaEnvelope, FaLock, FaSpinner } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import ForgotPasswordModal from '../../components/ForgotPasswordModal';
 
 const SuperAdminLogin = () => {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ const SuperAdminLogin = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -107,6 +109,15 @@ const SuperAdminLogin = () => {
                   placeholder="••••••••"
                 />
               </div>
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                >
+                  Forgot Password?
+                </button>
+              </div>
             </div>
 
             {/* Submit Button */}
@@ -132,6 +143,12 @@ const SuperAdminLogin = () => {
               Protected access for SuperAdmin only
             </p>
           </div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal 
+        open={showForgotPassword} 
+        onClose={() => setShowForgotPassword(false)} 
+      />
         </div>
 
         {/* Additional Info */}

@@ -132,6 +132,7 @@ export default function AttendanceMark() {
       context.drawImage(video, 0, 0);
       
       const imageData = canvas.toDataURL('image/jpeg');
+      console.log('📸 Image captured, length:', imageData.length);
       setCapturedImage(imageData);
       
       // Stop camera
@@ -174,6 +175,8 @@ export default function AttendanceMark() {
       const ipResponse = await fetch('https://api.ipify.org?format=json');
       const ipData = await ipResponse.json();
 
+      console.log('📤 Sending check-in with image, length:', capturedImage?.length || 0);
+      
       const response = await axios.post(
         `${API_URL}/api/v1/attendance/check-in`,
         {
@@ -189,11 +192,13 @@ export default function AttendanceMark() {
         }
       );
 
+      console.log('✅ Check-in response:', response.data);
       setSuccess('Check-in successful!');
       setTodayAttendance(response.data.attendance);
       setCapturedImage(null);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
+      console.error('❌ Check-in error:', err);
       setError(err.response?.data?.message || 'Error during check-in');
     } finally {
       setLoading(false);

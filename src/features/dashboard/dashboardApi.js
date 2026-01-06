@@ -12,7 +12,7 @@ export const dashboardApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ['DashboardStats', 'WeeklyPerformance', 'Trends'],
+  tagTypes: ['DashboardStats', 'WeeklyPerformance', 'Trends', 'Feedback'],
   endpoints: (builder) => ({
     /**
      * Get dashboard statistics (auto-determines role)
@@ -70,6 +70,15 @@ export const dashboardApi = createApi({
         return result;
       },
     }),
+
+    /**
+     * Get agent's customer feedback data (recent and trends)
+     * Returns: { recentFeedback: [...], trend: [...], overallAverage: 4.5, totalFeedbackCount: 10 }
+     */
+    getAgentFeedback: builder.query({
+      query: () => '/agent/feedback',
+      providesTags: ['Feedback'],
+    }),
   }),
 });
 
@@ -80,4 +89,5 @@ export const {
   useGetWeeklyPerformanceQuery,
   useGetPerformanceTrendsQuery,
   useRefreshDashboardStatsMutation,
+  useGetAgentFeedbackQuery,
 } = dashboardApi;

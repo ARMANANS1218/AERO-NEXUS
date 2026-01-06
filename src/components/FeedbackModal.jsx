@@ -3,7 +3,7 @@ import { X, Star, Send, ThumbsUp, MessageSquare } from 'lucide-react';
 import { useSubmitFeedbackMutation } from '../features/query/queryApi';
 import { toast } from 'react-toastify';
 
-export default function FeedbackModal({ isOpen, onClose, petitionId, querySubject }) {
+export default function FeedbackModal({ isOpen, onClose, petitionId, querySubject, onSubmitSuccess }) {
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -30,6 +30,11 @@ export default function FeedbackModal({ isOpen, onClose, petitionId, querySubjec
 
       setIsSubmitted(true);
       toast.success('Thank you for your feedback!');
+
+      // Call onSubmitSuccess callback if provided
+      if (onSubmitSuccess) {
+        onSubmitSuccess({ rating, comment: comment.trim() });
+      }
 
       // Auto close after 2 seconds
       setTimeout(() => {

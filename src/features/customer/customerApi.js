@@ -53,6 +53,16 @@ export const customerApi = createApi({
     findCustomerByQuery: builder.query({
       query: (queryId) => `/find-by-query/${queryId}`,
     }),
+    
+    // Update customer profile image (by Agent/TL/QA)
+    updateCustomerProfileImage: builder.mutation({
+      query: ({ customerId, imageUrl }) => ({
+        url: '/update-profile-image',
+        method: 'PUT',
+        body: { customerId, imageUrl },
+      }),
+      invalidatesTags: ['CustomerProfile'],
+    }),
   }),
 });
 
@@ -62,4 +72,5 @@ export const {
   useRegisterCustomerMutation,
   useLoginCustomerMutation,
   useFindCustomerByQueryQuery,
+  useUpdateCustomerProfileImageMutation,
 } = customerApi;

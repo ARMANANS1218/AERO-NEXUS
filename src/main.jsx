@@ -18,13 +18,11 @@ AOS.init({
 });
 
 createRoot(document.getElementById('root')).render(
-  // StrictMode commented out due to WebRTC compatibility issues
-  // StrictMode causes double-rendering in dev which conflicts with WebRTC connection setup
-  // <StrictMode>
-    <Provider store={store}>
-      <NotificationSoundProvider>
-        <App />
-      </NotificationSoundProvider>
-    </Provider>
+ 
+  <Provider store={store}>
+    <NotificationSoundProvider>
+      <App />
+    </NotificationSoundProvider>
+  </Provider>
   // </StrictMode>,
 );

@@ -1,16 +1,28 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { 
-  Search, Filter, Download, Trash2, Eye, X, Calendar, User, Camera 
+import {
+  Search,
+  Filter,
+  Download,
+  Trash2,
+  Eye,
+  X,
+  Calendar,
+  User,
+  Camera,
+  RefreshCw,
 } from 'lucide-react';
-import { 
-  useGetAllScreenshotsQuery, 
-  useDeleteScreenshotMutation 
+import {
+  useGetAllScreenshotsQuery,
+  useDeleteScreenshotMutation,
 } from '../../../features/screenshot/screenshotApi';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 import ConfirmDialog from '../../../components/ConfirmDialog';
+import { useGetProfileQuery } from '../../../features/auth/authApi';
 
-const IMG_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/call-screenshots`;
+const IMG_BASE_URL = `${
+  import.meta.env.VITE_API_URL || 'http://localhost:5000'
+}/uploads/call-screenshots`;
 
 // Helper to get image URL (Cloudinary or fallback to local)
 const getImageUrl = (screenshot) => {
@@ -18,6 +30,7 @@ const getImageUrl = (screenshot) => {
 };
 
 export default function CallScreenshotGallery() {
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -28,21 +41,28 @@ export default function CallScreenshotGallery() {
   const [toDate, setToDate] = useState('');
   const limit = 20;
 
-  const { data: screenshotsData, isLoading, refetch } = useGetAllScreenshotsQuery({ 
-    page, 
-    limit 
+  const { data: profileData } = useGetProfileQuery();
+
+  const {
+    data: screenshotsData,
+    isLoading,
+    refetch,
+  } = useGetAllScreenshotsQuery({
+    page,
+    limit,
   });
   const [deleteScreenshot, { isLoading: isDeleting }] = useDeleteScreenshotMutation();
 
   const screenshots = screenshotsData?.data || [];
   const pagination = screenshotsData?.pagination || {};
-  
+
   const getCapturedByName = useCallback((screenshot) => {
     return (
       screenshot?.capturedBy?.name ||
       screenshot?.metadata?.agentName ||
       (Array.isArray(screenshot?.participants)
-        ? (screenshot.participants.find(p => ['Agent','QA','TL'].includes(p?.role))?.name || screenshot.participants.find(p => p?.name)?.name)
+        ? screenshot.participants.find((p) => ['Agent', 'QA', 'TL'].includes(p?.role))?.name ||
+          screenshot.participants.find((p) => p?.name)?.name
         : null) ||
       'Agent'
     );
@@ -51,19 +71,22 @@ export default function CallScreenshotGallery() {
     const query = searchQuery.trim().toLowerCase();
     const from = fromDate ? new Date(fromDate) : null;
     const to = toDate ? new Date(toDate) : null;
-    return screenshots.filter(screenshot => {
+    return screenshots.filter((screenshot) => {
       // Text search: customer, agent (metadata), capturedBy name, subject, petitionId, participants names
-      const textMatch = !query || (
+      const textMatch =
+        !query ||
         screenshot.metadata?.customerName?.toLowerCase().includes(query) ||
         screenshot.metadata?.agentName?.toLowerCase().includes(query) ||
         screenshot.metadata?.querySubject?.toLowerCase().includes(query) ||
         screenshot.petitionId?.toLowerCase().includes(query) ||
         screenshot.capturedBy?.name?.toLowerCase().includes(query) ||
-        (Array.isArray(screenshot.participants) && screenshot.participants.some(p => p?.name?.toLowerCase().includes(query)))
-      );
+        (Array.isArray(screenshot.participants) &&
+          screenshot.participants.some((p) => p?.name?.toLowerCase().includes(query)));
 
       // Petition filter (exact or partial)
-      const petitionMatch = !petitionFilter.trim() || (screenshot.petitionId || '').toLowerCase().includes(petitionFilter.trim().toLowerCase());
+      const petitionMatch =
+        !petitionFilter.trim() ||
+        (screenshot.petitionId || '').toLowerCase().includes(petitionFilter.trim().toLowerCase());
 
       // Date range filter
       const created = new Date(screenshot.createdAt);
@@ -97,7 +120,10 @@ export default function CallScreenshotGallery() {
     e.stopPropagation();
     const link = document.createElement('a');
     link.href = getImageUrl(screenshot);
-    link.download = `call-screenshot-${screenshot.petitionId || screenshot.roomId}-${format(new Date(screenshot.createdAt), 'yyyy-MM-dd-HHmmss')}.png`;
+    link.download = `call-screenshot-${screenshot.petitionId || screenshot.roomId}-${format(
+      new Date(screenshot.createdAt),
+      'yyyy-MM-dd-HHmmss'
+    )}.png`;
     link.target = '_blank'; // For Cloudinary URLs
     document.body.appendChild(link);
     link.click();
@@ -131,9 +157,15 @@ export default function CallScreenshotGallery() {
               </p>
             </div>
             <button
-              onClick={() => refetch()}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+              onClick={async () => {
+                setIsRefreshing(true);
+                await refetch();
+                setTimeout(() => setIsRefreshing(false), 500);
+              }}
+              disabled={isRefreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
               Refresh
             </button>
           </div>
@@ -141,7 +173,10 @@ export default function CallScreenshotGallery() {
           {/* Search & Filters */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             <div className="relative md:col-span-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={20}
+              />
               <input
                 type="text"
                 placeholder="Search by who captured, of whom, subject, or petition ID..."
@@ -186,14 +221,14 @@ export default function CallScreenshotGallery() {
               No screenshots found
             </h3>
             <p className="text-gray-600 dark:text-gray-400">
-              {searchQuery 
-                ? 'Try adjusting your search criteria' 
+              {searchQuery
+                ? 'Try adjusting your search criteria'
                 : 'Screenshots captured during queries will appear here'}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
-            {filteredScreenshots.map(screenshot => (
+            {filteredScreenshots.map((screenshot) => (
               <div
                 key={screenshot._id}
                 className="bg-white dark:bg-gray-950 rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow cursor-pointer group"
@@ -206,7 +241,8 @@ export default function CallScreenshotGallery() {
                     alt={`Screenshot from ${screenshot.metadata?.customerName || 'query'}`}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
+                      e.target.src =
+                        'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
                     }}
                   />
                   {/* Overlay actions */}
@@ -228,13 +264,15 @@ export default function CallScreenshotGallery() {
                     >
                       <Download size={18} className="text-gray-700" />
                     </button>
-                    <button
-                      onClick={(e) => handleDelete(screenshot._id, e)}
-                      className="p-2 bg-white rounded-full hover:bg-red-50 transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} className="text-red-600" />
-                    </button>
+                    {profileData?.data?.role === 'Admin' && (
+                      <button
+                        onClick={(e) => handleDelete(screenshot._id, e)}
+                        className="p-2 bg-white rounded-full hover:bg-red-50 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} className="text-red-600" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -257,13 +295,23 @@ export default function CallScreenshotGallery() {
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
                       <User size={12} />
-                      <span className="line-clamp-1">{screenshot.metadata?.customerName || (screenshot.participants?.[0]?.name) || 'Customer'}</span>
+                      <span className="line-clamp-1">
+                        {screenshot.metadata?.customerName ||
+                          screenshot.participants?.[0]?.name ||
+                          'Customer'}
+                      </span>
                     </div>
-                    <span className="text-gray-500 dark:text-gray-500">by {getCapturedByName(screenshot)}</span>
+                    <span className="text-gray-500 dark:text-gray-500">
+                      by {getCapturedByName(screenshot)}
+                    </span>
                   </div>
                   {Array.isArray(screenshot.participants) && screenshot.participants.length > 1 && (
                     <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 line-clamp-1">
-                      With: {screenshot.participants.map(p => p?.name).filter(Boolean).join(', ')}
+                      With:{' '}
+                      {screenshot.participants
+                        .map((p) => p?.name)
+                        .filter(Boolean)
+                        .join(', ')}
                     </p>
                   )}
                 </div>
@@ -276,7 +324,7 @@ export default function CallScreenshotGallery() {
         {pagination.pages > 1 && (
           <div className="flex items-center justify-center gap-2 mt-6">
             <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
             >
@@ -286,7 +334,7 @@ export default function CallScreenshotGallery() {
               Page {page} of {pagination.pages}
             </span>
             <button
-              onClick={() => setPage(p => Math.min(pagination.pages, p + 1))}
+              onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
               disabled={page === pagination.pages}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
             >
@@ -308,8 +356,11 @@ export default function CallScreenshotGallery() {
           >
             <X size={24} className="text-gray-700" />
           </button>
-          
-          <div className="max-w-6xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+
+          <div
+            className="max-w-6xl w-full max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="bg-white dark:bg-gray-950 rounded-lg shadow-2xl w-full h-full flex flex-col overflow-hidden">
               {/* Sticky toolbar */}
               <div className="flex items-center justify-between gap-2 p-2 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white/90 dark:bg-gray-950/90 backdrop-blur z-10">
@@ -327,15 +378,17 @@ export default function CallScreenshotGallery() {
                   >
                     <Download size={16} /> Download
                   </button>
-                  <button
-                    onClick={(e) => {
-                      handleDelete(selectedImage._id, e);
-                      setSelectedImage(null);
-                    }}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm"
-                  >
-                    <Trash2 size={16} /> Delete
-                  </button>
+                  {profileData?.data?.role === 'Admin' && (
+                    <button
+                      onClick={(e) => {
+                        handleDelete(selectedImage._id, e);
+                        setSelectedImage(null);
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm"
+                    >
+                      <Trash2 size={16} /> Delete
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -383,7 +436,8 @@ export default function CallScreenshotGallery() {
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Captured By</p>
                       <p className="font-semibold text-gray-900 dark:text-white">
-                        {getCapturedByName(selectedImage)} ({selectedImage.capturedBy?.role || 'Agent'})
+                        {getCapturedByName(selectedImage)} (
+                        {selectedImage.capturedBy?.role || 'Agent'})
                       </p>
                     </div>
                   </div>

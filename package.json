@@ -19,7 +19,7 @@
     "@reduxjs/toolkit": "^2.8.2",
     "aos": "^2.3.4",
     "axios": "^1.11.0",
-    "bitmax-crm-widget": "^1.2.47",
+    "bitmax-crm-widget": "^1.4.0",
     "chart.js": "^4.5.1",
     "chartjs": "^0.3.24",
     "country-state-city": "^3.2.1",
@@ -49,6 +49,8 @@
     "recharts": "^3.1.2",
     "socket.io-client": "^4.8.1",
     "three": "^0.179.1",
+    "xlsx": "^0.18.5",
+    "xlsx-js-style": "^1.2.0",
     "yup": "^1.7.0"
   },
   "devDependencies": {
