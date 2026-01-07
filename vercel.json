@@ -7,6 +7,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/UTC-99810035/",
+      "destination": "/index.html"
+    },
+    {
       "source": "/UTC-99810035/:match*",
       "destination": "/:match*"
     }
