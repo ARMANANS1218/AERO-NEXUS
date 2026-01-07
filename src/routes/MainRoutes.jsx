@@ -515,7 +515,7 @@ const routers = createBrowserRouter(
       element: <RouteErrorBoundary />,
     },
   ],
-  { basename: '/UTC-99810035' }
+  { basename: '/UTC-99810035/' }
 );
 
 export default function MainRoutes() {
