@@ -1,18 +1,27 @@
 {
   "buildCommand": "npm install --legacy-peer-deps && npm run build",
   "installCommand": "npm install --legacy-peer-deps",
+  "outputDirectory": "dist",
   "rewrites": [
+    {
+      "source": "/UTC-99810035",
+      "destination": "/UTC-99810035/index.html"
+    },
     {
       "source": "/UTC-99810035/(.*)",
       "destination": "/UTC-99810035/$1"
-    },
-    {
-      "source": "/UTC-99810035/",
-      "destination": "/UTC-99810035/index.html"
     }
   ],
-  "cleanUrls": false,
-  "trailingSlash": false,
+  "routes": [
+    {
+      "src": "/UTC-99810035/(.*)",
+      "dest": "/UTC-99810035/$1"
+    },
+    {
+      "src": "/UTC-99810035",
+      "dest": "/UTC-99810035/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/UTC-99810035/assets/(.*)",
@@ -20,10 +29,6 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
-        },
-        {
-          "key": "Content-Type",
-          "value": "application/javascript; charset=utf-8"
         }
       ]
     }
