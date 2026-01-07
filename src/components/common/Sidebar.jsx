@@ -2,12 +2,55 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { menuData } from './menuData';
+import { jwtDecode } from 'jwt-decode';
+import axios from 'axios';
+import { API_URL } from '../../config/api';
 
 // TailwindCSS Sidebar (no MUI). Supports nested menus, active highlight, collapse on mobile.
 export default function Sidebar({ open, onClose, role = 'Agent', width = 260, onSidebarWidthChange }) {
   const location = useLocation();
   const [openMenus, setOpenMenus] = useState({});
   const [isHovered, setIsHovered] = useState(false);
+  const [organizationName, setOrganizationName] = useState('LIVE CHAT CRM');
+
+  // Fetch organization name from JWT token (initial load) and API (real-time updates)
+  useEffect(() => {
+    const fetchOrganizationName = async () => {
+      try {
+        // First, try to get from JWT token as fallback
+        const token = localStorage.getItem('token') || localStorage.getItem('superAdminToken');
+        if (token) {
+          const decoded = jwtDecode(token);
+          if (decoded.organizationName) {
+            setOrganizationName(decoded.organizationName);
+          }
+        }
+
+        // Then fetch from API for real-time updates (only for regular users, not SuperAdmin)
+        if (localStorage.getItem('token')) {
+          const response = await axios.get(`${API_URL}/api/v1/user/organization/name`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (response.data.status && response.data.data.organizationName) {
+            setOrganizationName(response.data.data.organizationName);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching organization name:', error);
+        // Keep the fallback value from JWT or default
+      }
+    };
+
+    fetchOrganizationName();
+    
+    // Refresh organization name every 30 seconds to catch updates
+    const interval = setInterval(fetchOrganizationName, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Notify parent of width changes
   useEffect(() => {
@@ -141,7 +184,7 @@ export default function Sidebar({ open, onClose, role = 'Agent', width = 260, on
               <span className="text-white font-bold text-xs">💬</span>
             </div>
             <h1 className="text-base font-bold text-gray-900 dark:text-white whitespace-nowrap">
-              LIVE CHAT CRM
+              {organizationName}
             </h1>
           </div>
           {!isExpanded && (
