@@ -3,16 +3,12 @@
   "installCommand": "npm install --legacy-peer-deps",
   "rewrites": [
     {
-      "source": "/UTC-99810035",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/UTC-99810035/",
-      "destination": "/index.html"
+      "source": "/UTC-99810035/assets/:match*",
+      "destination": "/assets/:match*"
     },
     {
       "source": "/UTC-99810035/:match*",
-      "destination": "/:match*"
+      "destination": "/index.html"
     }
   ],
   "headers": [
